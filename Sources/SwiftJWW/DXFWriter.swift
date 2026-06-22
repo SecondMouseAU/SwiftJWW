@@ -35,6 +35,7 @@ public enum DXFWriter {
     private static func emit(_ e: JWW.Entity, into s: inout String) {
         func p(_ code: Int, _ v: String) { s += "\(code)\n\(v)\n" }
         func num(_ v: Double) -> String { v.isFinite ? String(format: "%.6f", v) : "0.0" }
+        func normDeg(_ x: Double) -> Double { let a = x.truncatingRemainder(dividingBy: 360); return a < 0 ? a + 360 : a }
         let deg = 180.0 / Double.pi
 
         switch e {
@@ -51,7 +52,11 @@ public enum DXFWriter {
                 } else {
                     p(0, "ARC"); p(8, "\(layer)"); p(62, aci(color))
                     p(10, num(c.x)); p(20, num(c.y)); p(30, "0.0"); p(40, num(r))
-                    p(50, num(start * deg)); p(51, num((start + sweep) * deg))
+                    // JWW start/sweep are measured from the tilt axis; DXF wants absolute CCW angles in
+                    // [0,360). Add tilt, and order start→end CCW (so a negative sweep isn't drawn inverted).
+                    let a0 = tilt + start, a1 = tilt + start + sweep
+                    let lo = sweep >= 0 ? a0 : a1, hi = sweep >= 0 ? a1 : a0
+                    p(50, num(normDeg(lo * deg))); p(51, num(normDeg(hi * deg)))
                 }
             } else {                                            // ellipse / elliptical arc
                 p(0, "ELLIPSE"); p(8, "\(layer)"); p(62, aci(color))

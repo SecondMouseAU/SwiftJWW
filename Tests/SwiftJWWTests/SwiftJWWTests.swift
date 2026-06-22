@@ -98,6 +98,22 @@ struct SwiftJWWTests {
         #expect(s.contains("\nAB\n"))                   // text payload
     }
 
+    @Test("arc start/end include the tilt axis, normalized to [0,360)")
+    func arcTilt() throws {
+        // start=10°, sweep=40°, tilt=90° → DXF start=100°, end=140°.
+        let dwg = JWW.Drawing(version: 700, entities: [
+            .arc(center: .init(x: 0, y: 0), radius: 1, start: 10 * .pi / 180, sweep: 40 * .pi / 180,
+                 tilt: .pi / 2, ratio: 1, full: false, layer: 0, color: 1),
+        ], counts: .init())
+        let s = DXFWriter.string(dwg)
+        let lines = s.components(separatedBy: "\n")
+        func after(_ code: String) -> Double? {
+            guard let i = lines.firstIndex(of: code) else { return nil }; return Double(lines[i + 1])
+        }
+        #expect(abs((after("50") ?? 0) - 100) < 1e-3)
+        #expect(abs((after("51") ?? 0) - 140) < 1e-3)
+    }
+
     /// A JWW with a top-level line, a dimension, a block insert (→ def 7), then a block-definition list
     /// holding one CDataList (number 7) with a single member line.
     static func sampleWithBlocksAndDims() -> Data {
