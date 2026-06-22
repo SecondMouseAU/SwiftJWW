@@ -60,11 +60,16 @@ let dxf = DXFWriter.string(dwg)          // or DXFWriter.write(dwg, to: url)
 
 ## Scope & notes
 
-v1 covers **lines, arcs/circles/ellipses, points, and text** — the core of typical drawings. **Block
-inserts and dimensions** are recognised and counted but not yet expanded (a planned addition). Text is
-stored as **CP932 (Shift-JIS)** bytes; the DXF writer decodes it to Unicode via the system's
-CoreFoundation tables (reliable on Apple platforms; on Linux it falls back, so Japanese text may not
-decode — the geometry still converts).
+Covers **lines, arcs/circles/ellipses, points, text, block definitions + inserts, and dimensions**.
+Block definitions become DXF `BLOCK`s and inserts become `INSERT`s (`Drawing.blocks` holds the defs by
+number); dimensions are decomposed into their drawn parts (dimension line, value text, witness lines,
+arrows). Text is stored as **CP932 (Shift-JIS)** bytes; the DXF writer decodes it to Unicode via the
+system's CoreFoundation tables (reliable on Apple platforms; on Linux it falls back, so Japanese text
+may not decode — the geometry still converts).
+
+> Block/dimension support is validated on synthetic fixtures and is structurally correct against the
+> documented format; the line/arc/point/text core is additionally validated byte-for-byte against the
+> reference reader on real drawings.
 
 DWG output is out of scope (proprietary); produce DXF here and convert to DWG downstream (e.g. the free
 ODA File Converter) if needed.

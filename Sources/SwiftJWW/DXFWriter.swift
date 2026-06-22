@@ -6,8 +6,21 @@ import Foundation
 public enum DXFWriter {
 
     public static func string(_ dwg: JWW.Drawing) -> String {
-        var s = "999\nSwiftJWW\n0\nSECTION\n2\nENTITIES\n"
+        var s = "999\nSwiftJWW\n"
         s.reserveCapacity(dwg.entities.count * 120)
+        // BLOCKS section — one BLOCK per definition, named BLK<number>.
+        if !dwg.blocks.isEmpty {
+            s += "0\nSECTION\n2\nBLOCKS\n"
+            for num in dwg.blocks.keys.sorted() {
+                let def = dwg.blocks[num]!
+                let name = "BLK\(num)"
+                s += "0\nBLOCK\n8\n0\n2\n\(name)\n70\n0\n10\n0.0\n20\n0.0\n30\n0.0\n3\n\(name)\n"
+                for e in def.entities { emit(e, into: &s) }
+                s += "0\nENDBLK\n8\n0\n"
+            }
+            s += "0\nENDSEC\n"
+        }
+        s += "0\nSECTION\n2\nENTITIES\n"
         for e in dwg.entities { emit(e, into: &s) }
         s += "0\nENDSEC\n0\nEOF\n"
         return s
@@ -58,6 +71,15 @@ public enum DXFWriter {
             p(40, num(height > 0 ? height : 2.5))
             p(1, decodeText(raw))
             if abs(angleRad) > 1e-9 { p(50, num(angleRad * deg)) }
+
+        case let .insert(def, at, scaleX, scaleY, rotationRad, layer, color):
+            p(0, "INSERT"); p(8, "\(layer)"); p(62, aci(color)); p(2, "BLK\(def)")
+            p(10, num(at.x)); p(20, num(at.y)); p(30, "0.0")
+            p(41, num(scaleX == 0 ? 1 : scaleX)); p(42, num(scaleY == 0 ? 1 : scaleY)); p(43, "1.0")
+            if abs(rotationRad) > 1e-9 { p(50, num(rotationRad * deg)) }
+
+        case let .dimension(parts, _):
+            for part in parts { emit(part, into: &s) }          // decomposed: dimension line, text, witness lines, arrows
         }
     }
 

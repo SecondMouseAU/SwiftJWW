@@ -45,6 +45,12 @@ struct SwiftJWWTests {
         mutating func base(penStyle: Int = 1, color: Int = 2, layer: Int = 0) {
             u32(0); u8(penStyle); u16(color); u16(0); u16(layer); u16(0); u16(0)   // v>=351 → penWidth present
         }
+        mutating func str(_ s: String) { let a = Array(s.utf8); u8(a.count); d.append(contentsOf: a) }
+        mutating func classTag(_ name: String) { u16(0xFFFF); u16(0x2bc); u16(name.utf8.count); d.append(contentsOf: Array(name.utf8)) }
+        // inline entity field groups (no object tag — used inside CDataSunpou)
+        mutating func senFields(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, layer: Int = 0) { base(layer: layer); f64(x1); f64(y1); f64(x2); f64(y2) }
+        mutating func mojiFields(_ text: String, layer: Int = 0) { base(layer: layer); f64(0); f64(0); f64(0); f64(0); u32(0); f64(2); f64(2); f64(0); f64(0); emptyStr(); str(text) }
+        mutating func tenFields(_ x: Double, _ y: Double, layer: Int = 0) { base(layer: layer); f64(x); f64(y); u32(0) }
     }
 
     /// Build a JWW with 2 lines (one class def + one back-ref) and 1 arc.
@@ -90,6 +96,49 @@ struct SwiftJWWTests {
         #expect(s.contains("\nLINE\n") && s.contains("\nCIRCLE\n") && s.contains("\nARC\n") && s.contains("\nPOINT\n") && s.contains("\nTEXT\n"))
         #expect(s.hasSuffix("EOF\n"))
         #expect(s.contains("\nAB\n"))                   // text payload
+    }
+
+    /// A JWW with a top-level line, a dimension, a block insert (→ def 7), then a block-definition list
+    /// holding one CDataList (number 7) with a single member line.
+    static func sampleWithBlocksAndDims() -> Data {
+        var b = Builder()
+        b.header()
+        b.u16(3)                                        // main array preamble
+        b.classTag("CDataSen"); b.senFields(0, 0, 10, 0)                 // top-level line
+        b.classTag("CDataSunpou"); b.base(layer: 3)                     // dimension
+        b.senFields(0, 0, 10, 0); b.mojiFields("100")                  // dim line + value text
+        b.u16(0); b.senFields(0, 0, 0, 1); b.senFields(10, 0, 10, 1)   // sxf mode + 2 witness lines
+        for _ in 0..<4 { b.tenFields(0, 0) }                           // 4 arrow/ref points
+        b.classTag("CDataBlock"); b.base(layer: 2)                     // block insert → def 7
+        b.f64(5); b.f64(6); b.f64(1); b.f64(1); b.f64(0); b.u32(7)
+        // block-definition list: count (skipped as a null tag), then one CDataList
+        b.u16(1)
+        b.classTag("CDataList"); b.base(); b.u32(7); b.u32(0); b.u32(0); b.str("widget")
+        b.u16(1)                                                       // 1 member
+        b.classTag("CDataSen"); b.senFields(0, 0, 5, 5)                // member line
+        return b.d
+    }
+
+    @Test("captures block definitions, inserts, and dimensions")
+    func blocksAndDims() throws {
+        let dwg = try JWW.read(data: Self.sampleWithBlocksAndDims())
+        #expect(dwg.counts.line == 1)                   // only the top-level line (dim parts + block members excluded)
+        #expect(dwg.counts.dim == 1)
+        #expect(dwg.counts.block == 1)                  // the insert
+        // block definition 7 captured with its single member line
+        let def = try #require(dwg.blocks[7])
+        #expect(def.name == "widget" && def.entities.count == 1)
+        // the insert references def 7
+        guard let ins = dwg.entities.first(where: { if case .insert = $0 { return true } else { return false } }),
+              case let .insert(num, at, _, _, _, _, _) = ins else { Issue.record("no insert"); return }
+        #expect(num == 7 && at.x == 5 && at.y == 6)
+        // the dimension decomposes into parts (line + text + witnesses + arrows)
+        guard let dim = dwg.entities.first(where: { if case .dimension = $0 { return true } else { return false } }),
+              case let .dimension(parts, _) = dim else { Issue.record("no dimension"); return }
+        #expect(parts.count >= 3)
+        // DXF carries a BLOCKS section + INSERT
+        let dxf = DXFWriter.string(dwg)
+        #expect(dxf.contains("\nBLOCKS\n") && dxf.contains("\nBLOCK\n") && dxf.contains("\nINSERT\n") && dxf.contains("\nBLK7\n"))
     }
 
     @Test("looksLikeJWW + error on bad magic and empty")

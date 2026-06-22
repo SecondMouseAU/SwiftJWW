@@ -122,111 +122,149 @@ extension JWW {
 
         // MARK: parse
 
+        enum Parsed { case entity(JWW.Entity), blockDef(JWW.BlockDef), solid, skip }
+
+        /// MFC `ReadCount` — a WORD, or (if it equals 0xFFFF) a following DWORD. Used for the object-array
+        /// length and each block definition's member count.
+        mutating func readCount() throws -> Int { let w = try u16(); return w == 0xFFFF ? try u32() : w }
+
         mutating func parse() throws -> JWW.Drawing {
             try readHeader()
             var entities: [JWW.Entity] = []
+            var blocks: [Int: JWW.BlockDef] = [:]
             var counts = JWW.Drawing.Counts()
 
-            // MFC array preamble.
-            let pre = try u16()
-            if pre == 0xFFFF { _ = try u32() }
-
             // MFC CArchive object map: BOTH class definitions and every object consume an index, so a
-            // back-reference index (e.g. the 2nd CDataEnko) points past all preceding objects to the
-            // class's definition slot. We register classes by index and bump `mapIndex` per object too.
+            // back-reference index points past all preceding objects to the class's definition slot.
             var classMap: [Int: String] = [:]
             var mapIndex = 1
 
+            _ = try readCount()                                 // main object-array length (drive by EOF below)
             while !eof {
-                let tag: Int
-                do { tag = try u16() } catch { break }
-                var j = 0
-                switch tag {
-                case 0x0000: continue                          // null object — no index consumed
-                case 0xFFFF:
-                    _ = try u16()                              // schema
-                    let len = try u16()                        // class-name length (WORD, not jwString)
-                    try ensure(len); let name = Array(b[p..<p + len]); p += len
-                    classMap[mapIndex] = String(decoding: name, as: UTF8.self)
-                    j = mapIndex; mapIndex += 1                 // the class definition takes an index
-                case 0xFF7F, 0x7FFF:
-                    j = try u32() & 0x7FFFFFFF
-                default:
-                    j = (tag & 0x8000) != 0 ? (tag & 0x7FFF) : 0
-                }
-                guard let cls = classMap[j] else { continue }
-                mapIndex += 1                                   // the object about to be read takes an index
-
-                switch cls {
-                case "CDataSen":
-                    let base = try readBase()
-                    let a = JWW.Point(x: try f64(), y: try f64())
-                    let b = JWW.Point(x: try f64(), y: try f64())
-                    entities.append(.line(a: a, b: b, layer: base.layer, color: base.penColor)); counts.line += 1
-                case "CDataEnko":
-                    let base = try readBase()
-                    let c = JWW.Point(x: try f64(), y: try f64())
-                    let r = try f64(), sa = try f64(), aa = try f64(), tilt = try f64(), ratio = try f64()
-                    let full = try u32() != 0
-                    entities.append(.arc(center: c, radius: r, start: sa, sweep: aa, tilt: tilt, ratio: ratio, full: full, layer: base.layer, color: base.penColor)); counts.arc += 1
-                case "CDataTen":
-                    let base = try readBase()
-                    let pt = JWW.Point(x: try f64(), y: try f64())
-                    _ = try u32()                              // kariten
-                    if base.penStyle == 100 { _ = try u32(); _ = try f64(); _ = try f64() }   // code, angle, scale
-                    entities.append(.point(at: pt, layer: base.layer, color: base.penColor)); counts.point += 1
-                case "CDataMoji":
-                    let base = try readBase()
-                    let at = JWW.Point(x: try f64(), y: try f64())
-                    _ = try f64(); _ = try f64()               // end x,y
-                    _ = try u32()                              // mojiShu
-                    let sx = try f64(), sy = try f64(); _ = try f64()   // sizeX, sizeY, kankaku
-                    let ang = try f64()                        // kakudo
-                    _ = try jwString()                         // font name
-                    let raw = try jwString()                   // text
-                    entities.append(.text(at: at, height: sy, width: sx, angleRad: ang, raw: raw, layer: base.layer, color: base.penColor)); counts.text += 1
-                case "CDataSolid":
-                    let base = try readBase()
-                    try skip(8 * 8)                            // 4 corner points
-                    if base.penColor == 10 { _ = try u32() }   // RGB
-                    counts.solid += 1
-                case "CDataBlock":
-                    _ = try readBase()
-                    try skip(8 * 5); _ = try u32()             // kijun x,y, scaleX,Y, rot; number
-                    counts.block += 1
-                case "CDataList":
-                    _ = try readBase()
-                    _ = try u32(); _ = try u32(); _ = try u32() // number, reffered, time
-                    try skipString()                           // name
-                case "CDataSunpou":
-                    try readSunpou()
-                    counts.dim += 1
-                default:
-                    throw JWW.Error.unknownClass(cls)
+                let parsed: Parsed
+                do { parsed = try readObject(&classMap, &mapIndex) } catch JWW.Error.truncated { break }
+                switch parsed {
+                case .entity(let e):
+                    entities.append(e)
+                    switch e {
+                    case .line: counts.line += 1
+                    case .arc: counts.arc += 1
+                    case .point: counts.point += 1
+                    case .text: counts.text += 1
+                    case .insert: counts.block += 1
+                    case .dimension: counts.dim += 1
+                    }
+                case .blockDef(let bd): blocks[bd.number] = bd
+                case .solid: counts.solid += 1
+                case .skip: break
                 }
             }
-            return JWW.Drawing(version: version, entities: entities, counts: counts)
+            return JWW.Drawing(version: version, entities: entities, blocks: blocks, counts: counts)
         }
 
-        /// Dimension = base + an embedded line + text, plus (v4.20+) a mode word, 2 aux lines, 4 points.
-        mutating func readSunpou() throws {
-            _ = try readBase()
-            try readSenFields()                                // m_Sen
-            try readMojiFields()                               // m_Moji
+        /// Read one MFC object: resolve its class tag, then deserialize the entity. `CDataList` (a block
+        /// definition) recursively reads its member objects; `CDataBlock` is a block insert; `CDataSunpou`
+        /// is decomposed into its drawn parts.
+        mutating func readObject(_ classMap: inout [Int: String], _ mapIndex: inout Int) throws -> Parsed {
+            let tag = try u16()
+            var j = 0
+            switch tag {
+            case 0x0000: return .skip                           // null object — no index consumed
+            case 0xFFFF:
+                _ = try u16()                                   // schema
+                let len = try u16()                             // class-name length (WORD)
+                try ensure(len); let name = Array(b[p..<p + len]); p += len
+                classMap[mapIndex] = String(decoding: name, as: UTF8.self)
+                j = mapIndex; mapIndex += 1
+            case 0xFF7F, 0x7FFF:
+                j = try u32() & 0x7FFFFFFF
+            default:
+                j = (tag & 0x8000) != 0 ? (tag & 0x7FFF) : 0
+            }
+            guard let cls = classMap[j] else { return .skip }
+            mapIndex += 1                                        // the object about to be read takes an index
+
+            switch cls {
+            case "CDataSen":   return .entity(try readSen())
+            case "CDataEnko":  return .entity(try readEnko())
+            case "CDataTen":   return .entity(try readTen())
+            case "CDataMoji":  return .entity(try readMoji())
+            case "CDataSolid":
+                let base = try readBase(); try skip(8 * 8)
+                if base.penColor == 10 { _ = try u32() }
+                return .solid
+            case "CDataBlock":
+                let base = try readBase()
+                let at = JWW.Point(x: try f64(), y: try f64())
+                let sx = try f64(), sy = try f64(), rot = try f64()
+                let num = try u32()
+                return .entity(.insert(def: num, at: at, scaleX: sx, scaleY: sy, rotationRad: rot, layer: base.layer, color: base.penColor))
+            case "CDataList":
+                _ = try readBase()
+                let num = try u32(); _ = try u32(); _ = try u32()      // number, reffered, time
+                let nameRaw = try jwString()
+                let memberCount = try readCount()                       // CObList of member entities
+                var members: [JWW.Entity] = []
+                var n = 0
+                while n < memberCount {
+                    n += 1
+                    if case .entity(let e) = try readObject(&classMap, &mapIndex) { members.append(e) }
+                }
+                let name = String(decoding: nameRaw, as: UTF8.self).components(separatedBy: "@@").first ?? ""
+                return .blockDef(.init(number: num, name: name, entities: members))
+            case "CDataSunpou":
+                return .entity(try readSunpou())
+            default:
+                throw JWW.Error.unknownClass(cls)
+            }
+        }
+
+        // MARK: entity field reads
+
+        mutating func readSen() throws -> JWW.Entity {
+            let base = try readBase()
+            let a = JWW.Point(x: try f64(), y: try f64())
+            let b = JWW.Point(x: try f64(), y: try f64())
+            return .line(a: a, b: b, layer: base.layer, color: base.penColor)
+        }
+        mutating func readEnko() throws -> JWW.Entity {
+            let base = try readBase()
+            let c = JWW.Point(x: try f64(), y: try f64())
+            let r = try f64(), sa = try f64(), aa = try f64(), tilt = try f64(), ratio = try f64()
+            let full = try u32() != 0
+            return .arc(center: c, radius: r, start: sa, sweep: aa, tilt: tilt, ratio: ratio, full: full, layer: base.layer, color: base.penColor)
+        }
+        mutating func readTen() throws -> JWW.Entity {
+            let base = try readBase()
+            let pt = JWW.Point(x: try f64(), y: try f64())
+            _ = try u32()                                       // kariten
+            if base.penStyle == 100 { _ = try u32(); _ = try f64(); _ = try f64() }
+            return .point(at: pt, layer: base.layer, color: base.penColor)
+        }
+        mutating func readMoji() throws -> JWW.Entity {
+            let base = try readBase()
+            let at = JWW.Point(x: try f64(), y: try f64())
+            _ = try f64(); _ = try f64()                        // end x,y
+            _ = try u32()                                       // mojiShu
+            let sx = try f64(), sy = try f64(); _ = try f64()
+            let ang = try f64()
+            _ = try jwString()                                  // font name
+            let raw = try jwString()                            // text
+            return .text(at: at, height: sy, width: sx, angleRad: ang, raw: raw, layer: base.layer, color: base.penColor)
+        }
+        /// Dimension = base + dimension line + value text, plus (v4.20+) a mode word, two witness lines,
+        /// and four arrow/reference points. Decomposed into its drawn parts.
+        mutating func readSunpou() throws -> JWW.Entity {
+            let base = try readBase()
+            var parts: [JWW.Entity] = []
+            parts.append(try readSen())                         // dimension line
+            parts.append(try readMoji())                        // value text
             if version >= 420 {
-                _ = try u16()                                  // SXF mode
-                try readSenFields(); try readSenFields()       // aux lines
-                for _ in 0..<4 { try readTenFields() }         // arrows / refs
+                _ = try u16()                                   // SXF mode
+                parts.append(try readSen()); parts.append(try readSen())   // witness lines
+                for _ in 0..<4 { parts.append(try readTen()) }  // arrows / reference points
             }
-        }
-        mutating func readSenFields() throws { _ = try readBase(); try skip(8 * 4) }
-        mutating func readTenFields() throws {
-            let base = try readBase(); try skip(8 * 2); _ = try u32()
-            if base.penStyle == 100 { _ = try u32(); try skip(8 * 2) }
-        }
-        mutating func readMojiFields() throws {
-            _ = try readBase(); try skip(8 * 4); _ = try u32(); try skip(8 * 4)
-            try skipString(); try skipString()
+            return .dimension(parts: parts, layer: base.layer)
         }
     }
 }

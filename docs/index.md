@@ -94,6 +94,9 @@ verification against reference tools; `Drawing.bounds` gives the drawing extent.
 | elliptical arc (ratio ≠ 1) | `ELLIPSE` |
 | point | `POINT` |
 | text | `TEXT` |
+| block definition | `BLOCK` (in the `BLOCKS` section) |
+| block insert | `INSERT` (refers to `BLK<number>`) |
+| dimension | decomposed into `LINE` / `TEXT` / `POINT` parts |
 
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values; JWW layer numbers become DXF layer
@@ -103,9 +106,11 @@ names.
 
 ## Scope & notes
 
-v1 covers **lines, arcs/circles/ellipses, points, and text** — the core of typical drawings. **Block
-inserts and dimensions** are recognised and counted, but not yet expanded into geometry (a planned
-addition).
+Covers **lines, arcs/circles/ellipses, points, text, block definitions + inserts, and dimensions**.
+Block definitions are exposed on `Drawing.blocks` (keyed by number) and emitted as DXF `BLOCK`s, with
+`.insert` entities becoming `INSERT`s; dimensions are decomposed into their drawn parts. The
+line/arc/point/text core is validated byte-for-byte against the reference reader on real drawings;
+block/dimension support is validated on synthetic fixtures (real block-bearing test files welcome).
 
 **Text encoding.** JWW stores text as **CP932 (Shift-JIS)** bytes; `Entity.text` exposes the `raw`
 bytes, and the DXF writer decodes them to Unicode using the system's CoreFoundation encoding tables.

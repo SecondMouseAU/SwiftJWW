@@ -20,18 +20,28 @@ public enum JWW {
     public struct Point: Equatable, Sendable { public var x: Double; public var y: Double }
 
     /// A drawing entity. Coordinates are in the drawing's own units (mm in real-world scale).
-    public enum Entity: Sendable {
+    public indirect enum Entity: Sendable {
         case line(a: Point, b: Point, layer: Int, color: Int)
         /// `start`/`sweep` in radians (CCW). `tilt` rotates the axis; `ratio` is the minor/major axis
         /// ratio (1 = circle). `full` marks a closed circle/ellipse.
         case arc(center: Point, radius: Double, start: Double, sweep: Double, tilt: Double, ratio: Double, full: Bool, layer: Int, color: Int)
         case point(at: Point, layer: Int, color: Int)
         case text(at: Point, height: Double, width: Double, angleRad: Double, raw: [UInt8], layer: Int, color: Int)
+        /// A block insertion: places block definition `def` (by number — see ``Drawing/blocks``) at
+        /// `at`, scaled and rotated.
+        case insert(def: Int, at: Point, scaleX: Double, scaleY: Double, rotationRad: Double, layer: Int, color: Int)
+        /// A dimension, decomposed into its drawn parts (dimension line, value text, witness lines).
+        case dimension(parts: [Entity], layer: Int)
     }
+
+    /// A block definition: a named group of entities, referenced by ``Entity/insert(def:...)``.
+    public struct BlockDef: Sendable { public var number: Int; public var name: String; public var entities: [Entity] }
 
     public struct Drawing: Sendable {
         public var version: Int
         public var entities: [Entity]
+        /// Block definitions keyed by number, referenced by `.insert` entities.
+        public var blocks: [Int: BlockDef] = [:]
         /// Counts by JWW class, for verification against reference tools.
         public var counts: Counts
         public struct Counts: Sendable, Equatable {
@@ -43,14 +53,17 @@ public enum JWW {
             var hi = Point(x: -.greatestFiniteMagnitude, y: -.greatestFiniteMagnitude)
             var any = false
             func acc(_ p: Point) { any = true; lo.x = min(lo.x, p.x); lo.y = min(lo.y, p.y); hi.x = max(hi.x, p.x); hi.y = max(hi.y, p.y) }
-            for e in entities {
+            func visit(_ e: Entity) {
                 switch e {
                 case let .line(a, b, _, _): acc(a); acc(b)
                 case let .arc(c, r, _, _, _, _, _, _, _): acc(Point(x: c.x - r, y: c.y - r)); acc(Point(x: c.x + r, y: c.y + r))
                 case let .point(p, _, _): acc(p)
                 case let .text(p, _, _, _, _, _, _): acc(p)
+                case let .insert(_, p, _, _, _, _, _): acc(p)
+                case let .dimension(parts, _): parts.forEach(visit)
                 }
             }
+            entities.forEach(visit)
             return any ? (lo, hi) : nil
         }
     }
