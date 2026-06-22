@@ -1,0 +1,17 @@
+# GitHub Pages (Jekyll) config for the SwiftJWW docs site — served from /docs on main.
+# Theme: just-the-docs (left sidebar nav + search), pinned to v0.3.3 for GitHub Pages' native build.
+# Matches the OCCTSwift / SwiftPMX / SwiftX docs setup so the ecosystem reads consistently.
+title: SwiftJWW
+description: A native-Swift reader for JWW (Jw_cad) 2D drawings, with a jww2dxf converter — macOS / iOS / Linux.
+remote_theme: just-the-docs/just-the-docs@v0.3.3
+
+search_enabled: true
+heading_anchors: true
+aux_links:
+  "GitHub": ["https://github.com/SecondMouseAU/SwiftJWW"]
+aux_links_new_tab: true
+
+exclude:
+  - "*.sh"
+  - Gemfile
+  - Gemfile.lock
