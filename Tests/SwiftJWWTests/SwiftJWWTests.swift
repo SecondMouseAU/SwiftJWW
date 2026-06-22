@@ -90,7 +90,7 @@ struct SwiftJWWTests {
             .arc(center: .init(x: 0, y: 0), radius: 5, start: 0, sweep: 2 * .pi, tilt: 0, ratio: 1, full: true, layer: 0, color: 1),
             .arc(center: .init(x: 0, y: 0), radius: 5, start: 0, sweep: .pi, tilt: 0, ratio: 1, full: false, layer: 0, color: 1),
             .point(at: .init(x: 2, y: 3), layer: 0, color: 1),
-            .text(at: .init(x: 0, y: 0), height: 2.5, width: 2.5, angleRad: 0, raw: Array("AB".utf8), layer: 0, color: 7),
+            .text(at: .init(x: 0, y: 0), height: 2.5, width: 2.5, angleRad: 0, string: "AB", layer: 0, color: 7),
         ], counts: .init())
         let s = DXFWriter.string(dwg)
         #expect(s.contains("\nLINE\n") && s.contains("\nCIRCLE\n") && s.contains("\nARC\n") && s.contains("\nPOINT\n") && s.contains("\nTEXT\n"))

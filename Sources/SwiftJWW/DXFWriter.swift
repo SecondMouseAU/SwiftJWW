@@ -65,11 +65,11 @@ public enum DXFWriter {
             p(0, "POINT"); p(8, "\(layer)"); p(62, aci(color))
             p(10, num(at.x)); p(20, num(at.y)); p(30, "0.0")
 
-        case let .text(at, height, _, angleRad, raw, layer, color):
+        case let .text(at, height, _, angleRad, string, layer, color):
             p(0, "TEXT"); p(8, "\(layer)"); p(62, aci(color))
             p(10, num(at.x)); p(20, num(at.y)); p(30, "0.0")
             p(40, num(height > 0 ? height : 2.5))
-            p(1, decodeText(raw))
+            p(1, dxfText(string))
             if abs(angleRad) > 1e-9 { p(50, num(angleRad * deg)) }
 
         case let .insert(def, at, scaleX, scaleY, rotationRad, layer, color):
@@ -89,12 +89,16 @@ public enum DXFWriter {
         (1...255).contains(c) ? "\(c)" : "7"
     }
 
-    /// JWW text is CP932 (Shift-JIS). Decode to a Swift String for the (UTF-8) DXF. DXF group-code 1
-    /// can't contain a newline, so any are stripped.
-    private static func decodeText(_ raw: [UInt8]) -> String {
-        let data = Data(raw)
-        let cp932 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.dosJapanese.rawValue)))
-        let str = String(data: data, encoding: cp932) ?? String(data: data, encoding: .shiftJIS) ?? String(decoding: raw, as: UTF8.self)
-        return str.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\r", with: " ")
+    /// Prepare a (Unicode) string for a DXF group-1 value: strip newlines, and escape every non-ASCII
+    /// character as the DXF `\U+XXXX` unicode escape. This renders correctly in AutoCAD / LibreCAD
+    /// regardless of the reader's assumed code page (an entities-only DXF carries no `$DWGCODEPAGE`).
+    static func dxfText(_ s: String) -> String {
+        var out = ""
+        for u in s.unicodeScalars {
+            if u == "\n" || u == "\r" { out += " " }
+            else if u.value < 0x80 { out.unicodeScalars.append(u) }
+            else { out += String(format: "\\U+%04X", u.value) }
+        }
+        return out
     }
 }

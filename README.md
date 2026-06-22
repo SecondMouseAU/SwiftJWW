@@ -63,9 +63,11 @@ let dxf = DXFWriter.string(dwg)          // or DXFWriter.write(dwg, to: url)
 Covers **lines, arcs/circles/ellipses, points, text, block definitions + inserts, and dimensions**.
 Block definitions become DXF `BLOCK`s and inserts become `INSERT`s (`Drawing.blocks` holds the defs by
 number); dimensions are decomposed into their drawn parts (dimension line, value text, witness lines,
-arrows). Text is stored as **CP932 (Shift-JIS)** bytes; the DXF writer decodes it to Unicode via the
-system's CoreFoundation tables (reliable on Apple platforms; on Linux it falls back, so Japanese text
-may not decode — the geometry still converts).
+arrows). **Text is decoded to Unicode at read time** (`Entity.text.string`) from the file's CP932
+(Shift-JIS) bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` escapes so
+Japanese renders in AutoCAD / LibreCAD regardless of code page. (CP932 decoding uses CoreFoundation —
+reliable on Apple platforms; on Linux it falls back and Japanese may not decode, but geometry still
+converts.)
 
 > Block/dimension support is validated on synthetic fixtures and is structurally correct against the
 > documented format; the line/arc/point/text core is additionally validated byte-for-byte against the

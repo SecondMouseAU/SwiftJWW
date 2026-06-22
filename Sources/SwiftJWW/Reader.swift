@@ -249,8 +249,8 @@ extension JWW {
             let sx = try f64(), sy = try f64(); _ = try f64()
             let ang = try f64()
             _ = try jwString()                                  // font name
-            let raw = try jwString()                            // text
-            return .text(at: at, height: sy, width: sx, angleRad: ang, raw: raw, layer: base.layer, color: base.penColor)
+            let raw = try jwString()                            // text (CP932) — decode to Unicode now
+            return .text(at: at, height: sy, width: sx, angleRad: ang, string: JWW.decodeCP932(raw), layer: base.layer, color: base.penColor)
         }
         /// Dimension = base + dimension line + value text, plus (v4.20+) a mode word, two witness lines,
         /// and four arrow/reference points. Decomposed into its drawn parts.

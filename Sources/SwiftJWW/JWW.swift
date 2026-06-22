@@ -26,7 +26,8 @@ public enum JWW {
         /// ratio (1 = circle). `full` marks a closed circle/ellipse.
         case arc(center: Point, radius: Double, start: Double, sweep: Double, tilt: Double, ratio: Double, full: Bool, layer: Int, color: Int)
         case point(at: Point, layer: Int, color: Int)
-        case text(at: Point, height: Double, width: Double, angleRad: Double, raw: [UInt8], layer: Int, color: Int)
+        /// `string` is decoded to Unicode at read time from the file's CP932 (Shift-JIS) bytes.
+        case text(at: Point, height: Double, width: Double, angleRad: Double, string: String, layer: Int, color: Int)
         /// A block insertion: places block definition `def` (by number — see ``Drawing/blocks``) at
         /// `at`, scaled and rotated.
         case insert(def: Int, at: Point, scaleX: Double, scaleY: Double, rotationRad: Double, layer: Int, color: Int)
@@ -86,6 +87,18 @@ public enum JWW {
         guard !data.isEmpty else { throw Error.empty }
         var r = Reader(data)
         return try r.parse()
+    }
+
+    /// Decode JWW/CP932 (Shift-JIS) text bytes to a Swift String. Uses the system CoreFoundation
+    /// Windows-31J table on Apple platforms; falls back to `.shiftJIS` then a lossy UTF-8 decode.
+    /// (CP932 via CoreFoundation is reliable on Apple platforms; on Linux it may be unavailable.)
+    public static func decodeCP932(_ bytes: [UInt8]) -> String {
+        let data = Data(bytes)
+        #if canImport(CoreFoundation)
+        let cp932 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.dosJapanese.rawValue)))
+        if let s = String(data: data, encoding: cp932) { return s }
+        #endif
+        return String(data: data, encoding: .shiftJIS) ?? String(decoding: bytes, as: UTF8.self)
     }
 
     /// Sniff: a JWW file begins with the ASCII bytes `"JwwData."`.
