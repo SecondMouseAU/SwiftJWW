@@ -1,0 +1,10 @@
+okf_version: 1
+repo: SwiftJWW
+cluster: kernel
+visibility: public
+status: active
+language: Swift
+summary: Native-Swift reader for JWW (Jw_cad) 2D drawings — lines/arcs/ellipses/text — plus a jww2dxf CLI; dependency-free clean-room port.
+products: []
+depends_on: []          # leaf — pure Swift, no intra-org or third-party deps
+maintainer: gsdali
