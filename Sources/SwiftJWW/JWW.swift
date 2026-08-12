@@ -1,13 +1,14 @@
 import Foundation
 
-/// A native-Swift reader for **JWW** — the native drawing format of **Jw_cad**, the free 2D CAD program
-/// widely used in Japan. JWW is an MFC `CArchive`-serialized binary file: an 8-byte `JwwData.` magic, a
-/// version, a large fixed (version-gated) document header, then an MFC object array of drawing entities.
+/// A native-Swift reader for **JWW**, the native drawing format of **Jw_cad**, the free 2D CAD
+/// program widely used in Japan.
 ///
-/// `SwiftJWW` reads the geometry — lines, arcs/circles/ellipses, points, and text — into a neutral
+/// JWW is an MFC `CArchive`-serialized binary file: an 8-byte `JwwData.` magic, a version, a large
+/// fixed (version-gated) document header, then an MFC object array of drawing entities.
+/// `SwiftJWW` reads the geometry (lines, arcs/circles/ellipses, points, and text) into a neutral
 /// ``Drawing``. It is a clean-room port of the documented JWW byte layout (LibreCAD's `jwwlib`
-/// reverse-engineering + the published `jwdatafmt` spec). Block inserts and dimensions are recognised
-/// but not yet expanded (see ``Entity``).
+/// reverse-engineering, plus the published `jwdatafmt` spec). Block inserts and dimensions are
+/// recognised but not yet expanded (see ``Entity``).
 ///
 /// ```swift
 /// let dwg = try JWW.read(contentsOf: url)
@@ -17,26 +18,41 @@ public enum JWW {
 
     // MARK: Model
 
-    public struct Point: Equatable, Sendable { public var x: Double; public var y: Double }
+    public struct Point: Equatable, Sendable {
+        public var x: Double
+        public var y: Double
+    }
 
-    /// A drawing entity. Coordinates are in the drawing's own units (mm in real-world scale).
+    /// A drawing entity.
+    ///
+    /// Coordinates are in the drawing's own units (mm in real-world scale).
     public indirect enum Entity: Sendable {
         case line(a: Point, b: Point, layer: Int, color: Int)
         /// `start`/`sweep` in radians (CCW). `tilt` rotates the axis; `ratio` is the minor/major axis
         /// ratio (1 = circle). `full` marks a closed circle/ellipse.
-        case arc(center: Point, radius: Double, start: Double, sweep: Double, tilt: Double, ratio: Double, full: Bool, layer: Int, color: Int)
+        case arc(
+            center: Point, radius: Double, start: Double, sweep: Double, tilt: Double,
+            ratio: Double, full: Bool, layer: Int, color: Int)
         case point(at: Point, layer: Int, color: Int)
         /// `string` is decoded to Unicode at read time from the file's CP932 (Shift-JIS) bytes.
-        case text(at: Point, height: Double, width: Double, angleRad: Double, string: String, layer: Int, color: Int)
-        /// A block insertion: places block definition `def` (by number — see ``Drawing/blocks``) at
+        case text(
+            at: Point, height: Double, width: Double, angleRad: Double, string: String, layer: Int,
+            color: Int)
+        /// A block insertion: places block definition `def` (by number, see ``Drawing/blocks``) at
         /// `at`, scaled and rotated.
-        case insert(def: Int, at: Point, scaleX: Double, scaleY: Double, rotationRad: Double, layer: Int, color: Int)
+        case insert(
+            def: Int, at: Point, scaleX: Double, scaleY: Double, rotationRad: Double, layer: Int,
+            color: Int)
         /// A dimension, decomposed into its drawn parts (dimension line, value text, witness lines).
         case dimension(parts: [Entity], layer: Int)
     }
 
     /// A block definition: a named group of entities, referenced by ``Entity/insert(def:...)``.
-    public struct BlockDef: Sendable { public var number: Int; public var name: String; public var entities: [Entity] }
+    public struct BlockDef: Sendable {
+        public var number: Int
+        public var name: String
+        public var entities: [Entity]
+    }
 
     public struct Drawing: Sendable {
         public var version: Int
@@ -53,15 +69,25 @@ public enum JWW {
             var lo = Point(x: .greatestFiniteMagnitude, y: .greatestFiniteMagnitude)
             var hi = Point(x: -.greatestFiniteMagnitude, y: -.greatestFiniteMagnitude)
             var any = false
-            func acc(_ p: Point) { any = true; lo.x = min(lo.x, p.x); lo.y = min(lo.y, p.y); hi.x = max(hi.x, p.x); hi.y = max(hi.y, p.y) }
+            func acc(_ p: Point) {
+                any = true
+                lo.x = min(lo.x, p.x)
+                lo.y = min(lo.y, p.y)
+                hi.x = max(hi.x, p.x)
+                hi.y = max(hi.y, p.y)
+            }
             func visit(_ e: Entity) {
                 switch e {
-                case let .line(a, b, _, _): acc(a); acc(b)
-                case let .arc(c, r, _, _, _, _, _, _, _): acc(Point(x: c.x - r, y: c.y - r)); acc(Point(x: c.x + r, y: c.y + r))
-                case let .point(p, _, _): acc(p)
-                case let .text(p, _, _, _, _, _, _): acc(p)
-                case let .insert(_, p, _, _, _, _, _): acc(p)
-                case let .dimension(parts, _): parts.forEach(visit)
+                case .line(let a, let b, _, _):
+                    acc(a)
+                    acc(b)
+                case .arc(let c, let r, _, _, _, _, _, _, _):
+                    acc(Point(x: c.x - r, y: c.y - r))
+                    acc(Point(x: c.x + r, y: c.y + r))
+                case .point(let p, _, _): acc(p)
+                case .text(let p, _, _, _, _, _, _): acc(p)
+                case .insert(_, let p, _, _, _, _, _): acc(p)
+                case .dimension(let parts, _): parts.forEach(visit)
                 }
             }
             entities.forEach(visit)
@@ -89,14 +115,18 @@ public enum JWW {
         return try r.parse()
     }
 
-    /// Decode JWW/CP932 (Shift-JIS) text bytes to a Swift String. Uses the system CoreFoundation
-    /// Windows-31J table on Apple platforms; falls back to `.shiftJIS` then a lossy UTF-8 decode.
-    /// (CP932 via CoreFoundation is reliable on Apple platforms; on Linux it may be unavailable.)
+    /// Decode JWW/CP932 (Shift-JIS) text bytes to a Swift String.
+    ///
+    /// Uses the system CoreFoundation Windows-31J table on Apple platforms; falls back to
+    /// `.shiftJIS` then a lossy UTF-8 decode. CP932 via CoreFoundation is reliable on Apple
+    /// platforms; on Linux it may be unavailable.
     public static func decodeCP932(_ bytes: [UInt8]) -> String {
         let data = Data(bytes)
         #if canImport(CoreFoundation)
-        let cp932 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.dosJapanese.rawValue)))
-        if let s = String(data: data, encoding: cp932) { return s }
+            let cp932 = String.Encoding(
+                rawValue: CFStringConvertEncodingToNSStringEncoding(
+                    CFStringEncoding(CFStringEncodings.dosJapanese.rawValue)))
+            if let s = String(data: data, encoding: cp932) { return s }
         #endif
         return String(data: data, encoding: .shiftJIS) ?? String(decoding: bytes, as: UTF8.self)
     }

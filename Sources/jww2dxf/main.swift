@@ -7,7 +7,9 @@ guard args.count >= 2 else {
     exit(2)
 }
 let inURL = URL(fileURLWithPath: args[1])
-let outURL = args.count >= 3 ? URL(fileURLWithPath: args[2])
+let outURL =
+    args.count >= 3
+    ? URL(fileURLWithPath: args[2])
     : inURL.deletingPathExtension().appendingPathExtension("dxf")
 
 do {
@@ -16,7 +18,9 @@ do {
     let c = dwg.counts
     var line = "\(inURL.lastPathComponent) → \(outURL.lastPathComponent)  (v\(dwg.version); "
     line += "\(c.line) line, \(c.arc) arc, \(c.point) point, \(c.text) text"
-    if c.solid + c.block + c.dim > 0 { line += "; skipped \(c.solid) solid/\(c.block) block/\(c.dim) dim" }
+    if c.solid + c.block + c.dim > 0 {
+        line += "; skipped \(c.solid) solid/\(c.block) block/\(c.dim) dim"
+    }
     line += ")"
     if let b = dwg.bounds {
         line += String(format: "  bbox %.2f×%.2f", b.max.x - b.min.x, b.max.y - b.min.y)
