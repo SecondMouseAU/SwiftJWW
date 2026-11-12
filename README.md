@@ -12,13 +12,14 @@ A native-Swift reader for **JWW**, the native drawing format of [**Jw_cad**](htt
 
 JWW is an MFC `CArchive`-serialized binary file (`JwwData.` magic, a version, a large version-gated
 document header, then an MFC object array of entities). SwiftJWW reads the geometry (**lines,
-arcs/circles/ellipses, points, and text**), the layer groups with their scales and dimensions, and
-converts it to **DXF**.
+arcs/circles/ellipses, points, and text**), the layer groups with their scales, dimensions and block
+inserts, and converts it to **DXF**.
 
 - Pure Swift, no third-party dependencies.
 - Clean-room port of the documented JWW byte layout (the published `jwdatafmt` spec + LibreCAD's
   `jwwlib` as the reference reader). **Validated byte-for-byte** against the reference reader on real
-  drawings: identical entity counts and bounding boxes.
+  drawings: identical entity counts and bounding boxes. Also checked against the DXF published beside
+  13 real drawings (see [Validation](#validation)).
 
 ## Install
 
@@ -69,10 +70,15 @@ times `dwg.scale(ofLayerGroup:)` is the full-size length.
 
 **Dimensions.** `element.dimension` reads a dimension record as one object: dimension line, text and
 its numeric `value`, extension lines, arrow points and measured points. A file stores a record only
-when the drawing used Jw_cad's dimension command; a converted or exploded drawing keeps the pieces as
-loose lines, points and text with the dimension attribute flags set. `dwg.recoveringDimensions()`
-pairs each dimension value text with the two arrow points at its stated distance and lists every
-value it could not explain.
+when the drawing used Jw_cad's dimension command; the TECS drawings keep the pieces as loose lines,
+points and text with the dimension attribute flags set. `dwg.recoveringDimensions()` pairs each
+dimension value text with the two arrow points at its stated distance and lists every value it could
+not explain.
+
+**Blocks.** `dwg.expandingBlocks()` replaces each insert with its block's members, with insertion
+point, scale and rotation applied and nested blocks followed. Each member lists the references it came
+from in `element.references`; inserts of an undefined block, or of a block that contains itself, are
+returned in `unresolved`.
 
 ## Scope & notes
 
@@ -84,6 +90,20 @@ bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` esc
 renders in AutoCAD / LibreCAD regardless of code page. (CP932 decoding uses CoreFoundation, which is
 reliable on Apple platforms; on Linux it falls back and Japanese may not decode, but geometry still
 converts.) The DXF writer does not apply the layer group scale.
+
+## Validation
+
+The line, arc, point and text core is validated byte-for-byte against the reference reader. In
+addition, the 13 locomotive drawings of the [TECS](https://tecs.g2.xrea.com) diesel page, each
+published as JWW and DXF, are compared entity by entity: 58,607 lines, arcs, circles, points and
+texts match within 0.01 mm of full size, and every remaining difference is explained (see the
+[documentation](https://secondmouseau.github.io/SwiftJWW/#validation-against-real-drawings)).
+The drawings are not licensed for redistribution, so they are not in this repository. To run the
+comparison, put each `<name>.jww` beside its `<name>.dxf` in a folder and run
+`SWIFTJWW_FIXTURES=/path/to/folder swift test`; without the variable the test is skipped.
+
+None of those 13 drawings contains a dimension record or a block, so block expansion and dimension
+records are validated on synthetic fixtures only.
 
 DWG output is out of scope (proprietary); produce DXF here and convert to DWG downstream (e.g. the free
 ODA File Converter) if needed.

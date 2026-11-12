@@ -9,7 +9,8 @@ import Foundation
 /// ``Drawing``. It is a clean-room port of the documented JWW byte layout (LibreCAD's `jwwlib`
 /// reverse-engineering, plus the published `jwdatafmt` spec). ``Drawing/elements`` adds the layer
 /// group, line type and colour of each object, ``Element/dimension`` reads a dimension as one
-/// object, and ``Drawing/layerGroups`` carries the scale of each layer group.
+/// object, ``Drawing/layerGroups`` carries the scale of each layer group, and
+/// ``Drawing/expandingBlocks(maxDepth:)`` expands block inserts.
 ///
 /// ```swift
 /// let dwg = try JWW.read(contentsOf: url)

@@ -10,13 +10,15 @@ A native-Swift reader for **JWW**, the native drawing format of [**Jw_cad**](htt
 
 JWW is an MFC `CArchive`-serialized binary file: a `JwwData.` magic, a version, a large (version-gated)
 document header, then an MFC object array of drawing entities. SwiftJWW reads the **geometry** (lines,
-arcs/circles/ellipses, points, and text), the layer groups with their scales and dimensions into a
-neutral ``Drawing``, and converts it to **DXF**.
+arcs/circles/ellipses, points, and text), the layer groups with their scales, dimensions and block
+inserts into a neutral ``Drawing``, and converts it to **DXF**.
 
 - Pure Swift, **no third-party dependencies**.
 - Clean-room port of the documented JWW byte layout (the published `jwdatafmt` spec + LibreCAD's
   `jwwlib` as the reference reader). **Validated byte-for-byte against the reference reader** on real
   drawings (JWW v7.00): identical entity counts and bounding boxes across thousands of entities.
+  Also compared with the DXF published beside 13 real drawings
+  ([details](#validation-against-real-drawings)).
 
 ---
 
@@ -88,6 +90,7 @@ enum Entity {
 struct Element {                     // Drawing.elements, BlockDef.elements
     var entity: Entity
     var attributes: Attributes       // layerGroup, layer, lineType, color, penWidth, curveAttribute, flags
+    var references: [BlockReference] // set on elements produced by block expansion
     var dimension: Dimension? { get }
 }
 ```
@@ -137,6 +140,20 @@ It is an inference, so `DimensionRecovery.unmatchedValues` lists every value tex
 radius, diameter and angle values, values in another unit, and values that differ from the drawn
 distance. A recovered dimension has no reference points, so its `measuredPoints` are its arrow points.
 
+### Blocks
+
+`Drawing.expandingBlocks(maxDepth:)` returns a `BlockExpansion`. Each insert is replaced in place by
+the members of its definition, scaled about the block origin by `scaleX` and `scaleY` (a zero scale
+reads as 1), rotated by `rotationRad`, and moved to `at`. Inserts inside a block expand in turn.
+Arcs follow any placement exactly, including non-uniform scale and mirroring, where a circle becomes an
+ellipse. Text keeps its place, scales in size and turns with the block; it is not mirrored.
+
+Each expanded `Element.references` lists the inserts it came from, outermost first, each with its
+definition number, name, position in its container, placement and attributes. A member keeps its own
+layer, line type and colour. `BlockExpansion.unresolved` holds inserts left out because the definition
+is missing or the block contains itself. Which layer Jw_cad draws a block member on is not checked
+against a real file, because none of the available drawings contains a block.
+
 ---
 
 ## DXF mapping
@@ -174,6 +191,51 @@ geometry still converts.
 
 **DWG** is out of scope (proprietary). Produce DXF here and convert to DWG downstream (e.g. the free
 ODA File Converter) if you need it.
+
+---
+
+## Validation against real drawings
+
+The 13 locomotive drawings on the diesel page of [TECS](https://tecs.g2.xrea.com/cad/dl/dl1.html) are
+each published as JWW and as DXF. A test reads each JWW and compares it with its DXF: entity counts per
+layer and coordinates must match within 0.01 mm of full size. Across the 13 drawings 58,607 lines,
+arcs, circles, points and texts match one for one.
+
+The site allows free use for individual hobby purposes and names no licence, so the files are not in
+this repository. Put each `<name>.jww` beside its `<name>.dxf` in a folder and run:
+
+```
+SWIFTJWW_FIXTURES=/path/to/folder swift test
+```
+
+Without the variable the test is skipped.
+
+The comparison applies the conventions of that DXF export. They were read from these files, not taken
+from a specification:
+
+| In the DXF | Convention |
+|---|---|
+| Coordinates | full size: (drawn value + half the sheet) times `$LTSCALE`, where the sheet is `$EXTMAX / $LTSCALE` |
+| `$LTSCALE` | the scale of the write-target layer group, applied to every layer group |
+| Layer name | `_<group>-<layer>_<name>`, with group and layer in hex |
+| Elliptical arc | written as `LINE` segments, because the R12 format has no `ELLIPSE` |
+| Line type 9 | the line is written on a layer called `ADD_LINE` |
+| Layer name characters | some are written as underscores, one per byte (`ブレーキ` is `ブレ__キ`) |
+
+What the comparison showed:
+
+- **Text angle** is stored in degrees. The reader treated it as radians until this comparison
+  exposed it.
+- **Layer group scale** reads as the DXF's `$LTSCALE` for the write-target group in all 13 drawings,
+  for example 1:80 for `2120`. Two drawings (`h15tdl1`, `h15tdl2`) also use a second layer group at
+  1:10 and 1:5. The DXF export applies 1:50 to it, so converting those objects with their own group
+  scale gives a different size from the DXF.
+- **No drawing holds a dimension record, a block or a solid.** Their dimensions are loose lines,
+  points and text with the dimension attribute flags set. `recoveringDimensions()` rebuilt 214 of
+  the 241 dimension values, each with its text at the same place in the DXF. The other 27 are
+  diameters such as `860φ` and values with decimals that no pair of arrow points explains; they are
+  listed in `unmatchedValues`.
+- Block expansion and dimension records are therefore validated on synthetic fixtures only.
 
 ---
 
