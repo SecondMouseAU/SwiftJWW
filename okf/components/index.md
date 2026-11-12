@@ -11,6 +11,6 @@ timestamp: 2026-11-12
 
 - **`SwiftJWW`** (library): parses a `.jww` file into typed 2D entities (lines, arcs, circles,
   ellipses, points, text, block inserts, dimensions) with their layer group, line type and colour,
-  reads the layer groups with their scales, reads or recovers dimensions as one object, and converts
-  the drawing to DXF.
+  reads the layer groups with their scales, expands blocks, reads or recovers dimensions as one
+  object, and converts the drawing to DXF.
 - **`jww2dxf`** (executable): CLI wrapper that reads a JWW drawing and writes the DXF equivalent.

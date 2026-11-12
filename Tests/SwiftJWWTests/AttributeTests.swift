@@ -29,6 +29,7 @@ struct AttributeTests {
         }
         #expect(layer == 14 && color == 4)
         #expect(dwg.entities.count == dwg.elements.count)
+        #expect(element.references.isEmpty)
     }
 
     @Test("a bare entity wrapped as an element takes its layer and colour")
