@@ -20,17 +20,29 @@ struct SwiftJWWTests {
             withUnsafeBytes(of: v.bitPattern.littleEndian) { d.append(contentsOf: $0) }
         }
         mutating func emptyStr() { u8(0) }
+        mutating func rawStr(_ bytes: [UInt8]) {
+            u8(bytes.count)
+            d.append(contentsOf: bytes)
+        }
         mutating func zeros(_ n: Int) { d.append(Data(count: n)) }
 
         /// Emit a minimal but byte-exact v700 header (all fields zero / empty strings).
-        mutating func header() {
+        ///
+        /// `scales` sets layer-group scale denominators; `layerNames` and `groupNames` set CP932 names.
+        mutating func header(
+            scales: [Int: Double] = [:], layerNames: [Int: [Int: [UInt8]]] = [:],
+            groupNames: [Int: [UInt8]] = [:]
+        ) {
             d.append(contentsOf: Array("JwwData.".utf8))
             u32(700)
             emptyStr()  // memo
             u32(0)
             u32(0)  // zumen, writeGLay
-            for _ in 0..<16 {
-                zeros(4 + 4 + 8 + 4)
+            for g in 0..<16 {
+                u32(g == 0 ? 3 : 2)
+                u32(0)
+                f64(scales[g] ?? 1)
+                u32(0)
                 for _ in 0..<16 { zeros(8) }
             }  // layer-groups
             zeros(14 * 4)
@@ -44,8 +56,10 @@ struct SwiftJWWTests {
             zeros(8)
             zeros(8 * 2)
             zeros(8 * 2)
-            for _ in 0..<(16 * 16) { emptyStr() }
-            for _ in 0..<16 { emptyStr() }  // names
+            for g in 0..<16 {
+                for l in 0..<16 { rawStr(layerNames[g]?[l] ?? []) }
+            }
+            for g in 0..<16 { rawStr(groupNames[g] ?? []) }  // names
             zeros(8)
             zeros(8)
             zeros(4)
@@ -94,14 +108,17 @@ struct SwiftJWWTests {
             zeros(4)
             zeros(8 * 6)  // moji write settings
         }
-        mutating func base(penStyle: Int = 1, color: Int = 2, layer: Int = 0) {
-            u32(0)
+        mutating func base(
+            penStyle: Int = 1, color: Int = 2, layer: Int = 0, layerGroup: Int = 0, curve: Int = 0,
+            penWidth: Int = 0, flags: Int = 0
+        ) {
+            u32(curve)
             u8(penStyle)
             u16(color)
-            u16(0)
+            u16(penWidth)  // v>=351 → penWidth present
             u16(layer)
-            u16(0)
-            u16(0)  // v>=351 → penWidth present
+            u16(layerGroup)
+            u16(flags)
         }
         mutating func str(_ s: String) {
             let a = Array(s.utf8)
@@ -116,25 +133,29 @@ struct SwiftJWWTests {
         }
         // inline entity field groups (no object tag; used inside CDataSunpou)
         mutating func senFields(
-            _ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, layer: Int = 0
+            _ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, layer: Int = 0,
+            layerGroup: Int = 0, penStyle: Int = 1, flags: Int = 0
         ) {
-            base(layer: layer)
+            base(penStyle: penStyle, layer: layer, layerGroup: layerGroup, flags: flags)
             f64(x1)
             f64(y1)
             f64(x2)
             f64(y2)
         }
-        mutating func mojiFields(_ text: String, layer: Int = 0) {
-            base(layer: layer)
-            f64(0)
-            f64(0)
+        mutating func mojiFields(
+            _ text: String, layer: Int = 0, x: Double = 0, y: Double = 0, angleDegrees: Double = 0,
+            flags: Int = 0
+        ) {
+            base(layer: layer, flags: flags)
+            f64(x)
+            f64(y)
             f64(0)
             f64(0)
             u32(0)
             f64(2)
             f64(2)
             f64(0)
-            f64(0)
+            f64(angleDegrees)
             emptyStr()
             str(text)
         }

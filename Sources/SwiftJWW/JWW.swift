@@ -7,8 +7,9 @@ import Foundation
 /// fixed (version-gated) document header, then an MFC object array of drawing entities.
 /// `SwiftJWW` reads the geometry (lines, arcs/circles/ellipses, points, and text) into a neutral
 /// ``Drawing``. It is a clean-room port of the documented JWW byte layout (LibreCAD's `jwwlib`
-/// reverse-engineering, plus the published `jwdatafmt` spec). Block inserts and dimensions are
-/// recognised but not yet expanded (see ``Entity``).
+/// reverse-engineering, plus the published `jwdatafmt` spec). ``Drawing/elements`` adds the layer
+/// group, line type and colour of each object, ``Element/dimension`` reads a dimension as one
+/// object, and ``Drawing/layerGroups`` carries the scale of each layer group.
 ///
 /// ```swift
 /// let dwg = try JWW.read(contentsOf: url)
@@ -52,15 +53,63 @@ public enum JWW {
         public var number: Int
         public var name: String
         public var entities: [Entity]
+        /// The members with their attributes, in file order.
+        public var elements: [Element]
+
+        init(number: Int, name: String, entities: [Entity], elements: [Element]? = nil) {
+            self.number = number
+            self.name = name
+            self.entities = entities
+            self.elements = elements ?? entities.map { Element(entity: $0) }
+        }
+
+        init(number: Int, name: String, elements: [Element]) {
+            self.init(
+                number: number, name: name, entities: elements.map(\.entity), elements: elements)
+        }
     }
 
     public struct Drawing: Sendable {
         public var version: Int
+        /// The geometry of ``elements``, kept for source compatibility.
         public var entities: [Entity]
+        /// The top-level objects with their attributes, in file order.
+        public var elements: [Element]
         /// Block definitions keyed by number, referenced by `.insert` entities.
         public var blocks: [Int: BlockDef] = [:]
         /// Counts by JWW class, for verification against reference tools.
         public var counts: Counts
+        /// The 16 layer groups with their scales and names, empty for a drawing not read from a file.
+        public var layerGroups: [LayerGroup] = []
+
+        init(
+            version: Int, entities: [Entity], blocks: [Int: BlockDef] = [:], counts: Counts,
+            elements: [Element]? = nil, layerGroups: [LayerGroup] = []
+        ) {
+            self.version = version
+            self.entities = entities
+            self.elements = elements ?? entities.map { Element(entity: $0) }
+            self.blocks = blocks
+            self.counts = counts
+            self.layerGroups = layerGroups
+        }
+
+        init(
+            version: Int, elements: [Element], blocks: [Int: BlockDef], counts: Counts,
+            layerGroups: [LayerGroup]
+        ) {
+            self.init(
+                version: version, entities: elements.map(\.entity), blocks: blocks, counts: counts,
+                elements: elements, layerGroups: layerGroups)
+        }
+
+        /// The scale denominator of a layer group, nil when the group is out of range or unknown.
+        ///
+        /// A drawn length times this is the full-size length: 80 means 1:80.
+        public func scale(ofLayerGroup group: Int) -> Double? {
+            layerGroups.indices.contains(group) ? layerGroups[group].scale : nil
+        }
+
         public struct Counts: Sendable, Equatable {
             public var line = 0, arc = 0, point = 0, text = 0, solid = 0, block = 0, dim = 0
         }
