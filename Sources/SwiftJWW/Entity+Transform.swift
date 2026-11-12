@@ -14,7 +14,7 @@ extension JWW.Entity {
             // A mirrored block keeps its text readable: only position, size and turn follow.
             return .text(
                 at: t.apply(at), height: height * t.yScale, width: width * t.xScale,
-                angleRad: angle + t.rotation, string: string, layer: layer, color: color)
+                angleRad: angle + t.textRotation, string: string, layer: layer, color: color)
         case .arc(
             let center, let radius, let start, let sweep, let tilt, let ratio, let full, let layer,
             let color):

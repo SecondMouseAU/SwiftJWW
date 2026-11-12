@@ -23,9 +23,23 @@ struct ReferenceDXF {
     var header: [String: [Int: String]] = [:]
     var entities: [Entity] = []
 
+    /// A line that should hold a group code but does not: the file is not a well-formed DXF.
+    struct MalformedError: Error, CustomStringConvertible {
+        var line: Int
+        var content: String
+        var description: String { "DXF line \(line) is not a group code: \(content)" }
+    }
+
     init(contentsOf url: URL) throws {
-        let text = JWW.decodeCP932([UInt8](try Data(contentsOf: url)))
-        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        try self.init(text: JWW.decodeCP932([UInt8](try Data(contentsOf: url))))
+    }
+
+    /// Reads DXF text, and throws on a line that is not a group code rather than skipping it.
+    init(text: String) throws {
+        var lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
+            lines.removeLast()
+        }
         var section = ""
         var variable: String?
         var current: Entity?
@@ -33,7 +47,9 @@ struct ReferenceDXF {
         var i = 0
         while i + 1 < lines.count {
             defer { i += 2 }
-            guard let code = Int(lines[i].trimmingCharacters(in: .whitespaces)) else { continue }
+            guard let code = Int(lines[i].trimmingCharacters(in: .whitespaces)) else {
+                throw MalformedError(line: i + 1, content: String(lines[i]))
+            }
             let value = String(lines[i + 1])
             let trimmed = value.trimmingCharacters(in: .whitespaces)
             if code == 0 {
@@ -57,6 +73,9 @@ struct ReferenceDXF {
                 current?.groups[code, default: []].append(value)
             }
             previous = (code, trimmed)
+        }
+        if i < lines.count {
+            throw MalformedError(line: i + 1, content: String(lines[i]))
         }
         if let finished = current { entities.append(finished) }
     }

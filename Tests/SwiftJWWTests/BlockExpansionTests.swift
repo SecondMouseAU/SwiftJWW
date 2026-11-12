@@ -176,6 +176,42 @@ struct BlockExpansionTests {
         #expect(near(moved.label.at, 10, 1))
     }
 
+    struct TextTurn {
+        var sx: Double
+        var sy: Double
+        var rotation: Double
+        /// The turn added to the text's own angle.
+        var turn: Double
+    }
+
+    @Test(
+        "a mirror never leaves text upside down, and a placement without one turns it in full",
+        arguments: [
+            TextTurn(sx: -1, sy: 1, rotation: 0, turn: 0),
+            TextTurn(sx: 1, sy: -1, rotation: 0, turn: 0),
+            TextTurn(sx: -2, sy: 2, rotation: 0.5, turn: 0.5),
+            TextTurn(sx: 2, sy: -2, rotation: 0.5, turn: 0.5),
+            TextTurn(sx: -1, sy: 1, rotation: 2, turn: 2 - .pi),
+            TextTurn(sx: 1, sy: -1, rotation: -2, turn: .pi - 2),
+            TextTurn(sx: 1, sy: 1, rotation: 2, turn: 2),
+            TextTurn(sx: -1, sy: -1, rotation: 0, turn: .pi),
+        ])
+    func textUnderMirror(_ p: TextTurn) throws {
+        let text = JWW.Element(
+            entity: .text(
+                at: .init(x: 1, y: 0), height: 2, width: 3, angleRad: 0.25, string: "A", layer: 0,
+                color: 1))
+        let dwg = drawing(
+            [insert(1, at: (0, 0), sx: p.sx, sy: p.sy, rotation: p.rotation)],
+            blocks: [1: [text]])
+        let placed = try #require(dwg.expandingBlocks().elements.first)
+        guard case .text(_, _, _, let angle, _, _, _) = placed.entity else {
+            Issue.record("not text")
+            return
+        }
+        #expect(abs((angle - (0.25 + p.turn)).remainder(dividingBy: 2 * .pi)) < 1e-9)
+    }
+
     // MARK: arcs
 
     struct Placement {
