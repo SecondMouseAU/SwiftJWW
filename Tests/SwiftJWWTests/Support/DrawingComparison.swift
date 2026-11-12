@@ -139,7 +139,10 @@ enum DrawingComparison {
         }
 
         checkLayerNames(jww, dxf, &report)
-        checkDimensions(jww, dxf, ltscale, offset, &report)
+        let flat = JWW.Drawing(
+            version: jww.version, elements: expansion.elements, blocks: [:], counts: jww.counts,
+            layerGroups: jww.layerGroups)
+        checkDimensions(flat, dxf, ltscale, offset, &report)
         return report
     }
 
@@ -366,6 +369,9 @@ enum DrawingComparison {
     // MARK: dimensions
 
     /// Every recovered dimension must have its value text in the DXF, at the same place.
+    ///
+    /// The drawing is the block-expanded one, as in the rest of the comparison, so dimensions
+    /// inside blocks are checked too.
     private static func checkDimensions(
         _ jww: JWW.Drawing, _ dxf: ReferenceDXF, _ scale: Double, _ offset: (x: Double, y: Double),
         _ report: inout Report

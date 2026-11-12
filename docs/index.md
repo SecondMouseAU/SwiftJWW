@@ -146,7 +146,8 @@ distance. A recovered dimension has no reference points, so its `measuredPoints`
 the members of its definition, scaled about the block origin by `scaleX` and `scaleY` (a zero scale
 reads as 1), rotated by `rotationRad`, and moved to `at`. Inserts inside a block expand in turn.
 Arcs follow any placement exactly, including non-uniform scale and mirroring, where a circle becomes an
-ellipse. Text keeps its place, scales in size and turns with the block; it is not mirrored.
+ellipse. Text keeps its place, scales in size and turns with the block; it is not mirrored, and a
+mirrored block never leaves it upside down (the turn it takes stays within a quarter turn of upright).
 
 Each expanded `Element.references` lists the inserts it came from, outermost first, each with its
 definition number, name, position in its container, placement and attributes. A member keeps its own

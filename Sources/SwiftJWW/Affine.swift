@@ -44,6 +44,16 @@ struct Affine {
     /// The angle the x axis is turned to.
     var rotation: Double { atan2(b, a) }
 
+    /// The turn a text follows: `rotation`, but a mirror never leaves text upside down.
+    ///
+    /// A mirror can be read as a flip of either axis, which differ by a half turn, so the turn is
+    /// kept within a quarter turn of upright.
+    var textRotation: Double {
+        let turn = rotation
+        guard determinant < 0, cos(turn) < 0 else { return turn }
+        return turn > 0 ? turn - .pi : turn + .pi
+    }
+
     var xScale: Double { hypot(a, b) }
     var yScale: Double { hypot(c, d) }
 }
