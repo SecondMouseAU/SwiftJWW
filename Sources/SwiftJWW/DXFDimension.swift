@@ -52,6 +52,47 @@ struct DXFDimension {
             second: m[1], angleRad: atan2(dy, dx))
     }
 
+    /// A dimension rebuilt from loose pieces, nil when it has no two arrow points a length apart.
+    ///
+    /// The dimension line runs between the arrow points. The measured points are the far ends of
+    /// the witness lines, the ends away from the dimension line, and the arrow point itself on a
+    /// side that has no witness line. If the far ends do not measure the arrow distance along the
+    /// dimension line, both sides take the arrow points.
+    init?(recovered: JWW.Dimension) {
+        guard recovered.arrowPoints.count == 2 else { return nil }
+        let p = recovered.arrowPoints[0]
+        let q = recovered.arrowPoints[1]
+        let length = hypot(q.x - p.x, q.y - p.y)
+        guard length > DXFDimension.tolerance else { return nil }
+        let ux = (q.x - p.x) / length
+        let uy = (q.y - p.y) / length
+        /// The end of a witness line away from the dimension line, for the line that starts at `end`.
+        func farEnd(from end: JWW.Point) -> JWW.Point? {
+            for line in recovered.extensionLines {
+                let da = abs((line.a.x - p.x) * uy - (line.a.y - p.y) * ux)
+                let db = abs((line.b.x - p.x) * uy - (line.b.y - p.y) * ux)
+                let (near, far) = da <= db ? (line.a, line.b) : (line.b, line.a)
+                if hypot(near.x - end.x, near.y - end.y) <= DXFDimension.tolerance { return far }
+            }
+            return nil
+        }
+        var first = farEnd(from: p) ?? p
+        var second = farEnd(from: q) ?? q
+        let along = abs((second.x - first.x) * ux + (second.y - first.y) * uy)
+        if abs(along - length) > DXFDimension.tolerance {
+            first = p
+            second = q
+        }
+        self.init(
+            onLine: JWW.Point(x: (p.x + q.x) / 2, y: (p.y + q.y) / 2),
+            labelAt: recovered.label.at, label: recovered.label.string, first: first,
+            second: second, angleRad: atan2(q.y - p.y, q.x - p.x))
+    }
+
+    /// How far apart two drawn points may be and still be the same point, as in the dimension
+    /// recovery.
+    private static let tolerance = 1e-3
+
     /// The same dimension with every coordinate multiplied by `factor`.
     func scaled(by factor: Double) -> DXFDimension {
         guard factor != 1 else { return self }

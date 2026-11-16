@@ -1,11 +1,16 @@
 import Foundation
 
-/// The state of one DXF while it is written: the dimension blocks made so far.
+/// The state of one DXF while it is written: handles, the layers used and the dimension blocks.
 struct DXFEmitter {
     let drawing: JWW.Drawing
     let options: DXFWriter.Options
     /// The anonymous blocks of the dimensions written so far, as DXF text.
     var anonymousBlocks: [String] = []
+    /// The handles of the `DIMENSION`s rebuilt from loose pieces, in the order written.
+    var recoveredHandles: [String] = []
+    /// The layers written so far, by name, each with the JWW layer name it stands for.
+    var layers: [String: String] = [:]
+    private var nextHandle = 1
 
     init(drawing: JWW.Drawing, options: DXFWriter.Options) {
         self.drawing = drawing
@@ -15,16 +20,33 @@ struct DXFEmitter {
     /// The factor an element's coordinates are multiplied by: its layer group's scale when writing
     /// full size and the group is known, otherwise 1.
     func scale(of element: JWW.Element) -> Double {
-        guard options.fullSize,
-            let scale = drawing.scale(ofLayerGroup: element.attributes.layerGroup),
+        scale(ofGroup: element.attributes.layerGroup)
+    }
+
+    /// The factor for a layer group: its scale when writing full size and it is known, otherwise 1.
+    func scale(ofGroup group: Int) -> Double {
+        guard options.fullSize, let scale = drawing.scale(ofLayerGroup: group),
             scale.isFinite, scale > 0
         else { return 1 }
         return scale
     }
 
-    /// The name of the DXF layer for a JWW layer group and layer.
-    func layerName(group: Int, layer: Int) -> String {
-        "\(layer)"
+    /// The next handle (group 5), in hexadecimal.
+    mutating func handle() -> String {
+        defer { nextHandle += 1 }
+        return String(nextHandle, radix: 16, uppercase: true)
+    }
+
+    /// The name of the DXF layer for a JWW layer group and layer, which it records as used.
+    mutating func layerName(group: Int, layer: Int) -> String {
+        let name = DXFWriter.layerName(group: group, layer: layer)
+        if layers[name] == nil {
+            let groups = drawing.layerGroups
+            layers[name] =
+                groups.indices.contains(group)
+                ? groups[group].layers.first { $0.index == layer }?.name ?? "" : ""
+        }
+        return name
     }
 
     // MARK: blocks and elements
@@ -34,9 +56,10 @@ struct DXFEmitter {
     /// The scale of a full-size drawing is carried by the insert, not by the members.
     mutating func emitBlock(_ def: JWW.BlockDef, into s: inout String) {
         let name = "BLK\(def.number)"
-        s += "0\nBLOCK\n8\n0\n2\n\(name)\n70\n0\n10\n0.0\n20\n0.0\n30\n0.0\n3\n\(name)\n"
+        s += "0\nBLOCK\n5\n\(handle())\n8\n0\n2\n\(name)\n70\n0\n10\n0.0\n20\n0.0\n30\n0.0\n"
+        s += "3\n\(name)\n"
         for member in def.elements { emit(member, scale: 1, into: &s) }
-        s += "0\nENDBLK\n8\n0\n"
+        s += "0\nENDBLK\n5\n\(handle())\n8\n0\n"
     }
 
     /// Writes an element with its coordinates multiplied by `scale`.
@@ -69,12 +92,17 @@ struct DXFEmitter {
         }
         let deg = 180.0 / Double.pi
         func aci(_ c: Int) -> String { DXFWriter.aci(c) }
+        /// The first groups every entity has: its type, handle, layer and colour.
+        func head(_ type: String, _ layer: Int, _ color: Int) {
+            p(0, type)
+            p(5, handle())
+            p(8, layerName(group: group, layer: layer))
+            p(62, aci(color))
+        }
 
         switch e {
         case .line(let a, let b, let layer, let color):
-            p(0, "LINE")
-            p(8, layerName(group: group, layer: layer))
-            p(62, aci(color))
+            head("LINE", layer, color)
             p(10, num(a.x))
             p(20, num(a.y))
             p(30, "0.0")
@@ -84,20 +112,15 @@ struct DXFEmitter {
 
         case .arc(
             let c, let r, let start, let sweep, let tilt, let ratio, let full, let layer, let color):
-            let name = layerName(group: group, layer: layer)
             if abs(ratio - 1) < 1e-9 {  // circle / circular arc
                 if full || abs(abs(sweep) - 2 * .pi) < 1e-6 {
-                    p(0, "CIRCLE")
-                    p(8, name)
-                    p(62, aci(color))
+                    head("CIRCLE", layer, color)
                     p(10, num(c.x))
                     p(20, num(c.y))
                     p(30, "0.0")
                     p(40, num(r))
                 } else {
-                    p(0, "ARC")
-                    p(8, name)
-                    p(62, aci(color))
+                    head("ARC", layer, color)
                     p(10, num(c.x))
                     p(20, num(c.y))
                     p(30, "0.0")
@@ -112,9 +135,7 @@ struct DXFEmitter {
                     p(51, num(normDeg(hi * deg)))
                 }
             } else {  // ellipse / elliptical arc
-                p(0, "ELLIPSE")
-                p(8, name)
-                p(62, aci(color))
+                head("ELLIPSE", layer, color)
                 p(10, num(c.x))
                 p(20, num(c.y))
                 p(30, "0.0")
@@ -127,17 +148,13 @@ struct DXFEmitter {
             }
 
         case .point(let at, let layer, let color):
-            p(0, "POINT")
-            p(8, layerName(group: group, layer: layer))
-            p(62, aci(color))
+            head("POINT", layer, color)
             p(10, num(at.x))
             p(20, num(at.y))
             p(30, "0.0")
 
         case .text(let at, let height, _, let angleRad, let string, let layer, let color):
-            p(0, "TEXT")
-            p(8, layerName(group: group, layer: layer))
-            p(62, aci(color))
+            head("TEXT", layer, color)
             p(10, num(at.x))
             p(20, num(at.y))
             p(30, "0.0")
@@ -146,9 +163,7 @@ struct DXFEmitter {
             if abs(angleRad) > 1e-9 { p(50, num(angleRad * deg)) }
 
         case .insert(let def, let at, let scaleX, let scaleY, let rotationRad, let layer, let color):
-            p(0, "INSERT")
-            p(8, layerName(group: group, layer: layer))
-            p(62, aci(color))
+            head("INSERT", layer, color)
             p(2, "BLK\(def)")
             p(10, num(at.x))
             p(20, num(at.y))

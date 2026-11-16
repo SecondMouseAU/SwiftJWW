@@ -74,7 +74,7 @@ struct DXFWriterTests {
         #expect(d.number(10) == 0 && d.number(20) == 0)
         #expect(d.number(11) == 19.3 && d.number(21) == 1)
         #expect(d.number(62) == 5)
-        #expect(d.layer == "3")
+        #expect(d.layer == "0-3")
     }
 
     @Test("the drawn parts go in the anonymous block the dimension names")

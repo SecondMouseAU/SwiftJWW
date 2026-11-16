@@ -5,7 +5,9 @@ import Foundation
 /// An entities-only, version-agnostic DXF that AutoCAD / LibreCAD / most CAD tools accept. Maps
 /// JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
 /// elliptical arc→`ELLIPSE`, point→`POINT`, text→`TEXT`, block insert→`INSERT`, and a dimension
-/// record with its measured points→`DIMENSION`.
+/// record with its measured points→`DIMENSION`. Each entity has a handle (group 5), and its layer is
+/// named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export: layer
+/// 14 of group 0 is `0-E`.
 public enum DXFWriter {
 
     /// What the writer does beyond copying each entity as it is drawn.
@@ -17,35 +19,104 @@ public enum DXFWriter {
         /// scales its position and scale factors, and its members follow the insert.
         public var fullSize: Bool
 
-        public init(fullSize: Bool = false) {
+        /// Writes the dimensions ``JWW/Drawing/recoveringDimensions()`` rebuilds as `DIMENSION`s.
+        ///
+        /// Each rebuilt dimension is one rotated linear `DIMENSION`, and the loose lines, points
+        /// and text it was built from go in the anonymous block it names instead of the entities.
+        /// A value text no dimension explains stays a loose `TEXT`.
+        public var recoversDimensions: Bool
+
+        public init(fullSize: Bool = false, recoversDimensions: Bool = false) {
             self.fullSize = fullSize
+            self.recoversDimensions = recoversDimensions
         }
     }
 
+    /// What the writer inferred, which the DXF text alone does not say.
+    public struct Report: Equatable, Sendable {
+        /// The handles (group 5) of the `DIMENSION`s rebuilt from loose pieces, not read from a
+        /// stored record.
+        public var recoveredDimensions: [String]
+        /// Indices into ``JWW/Drawing/elements`` of the dimension value texts no dimension explains.
+        public var unexplainedValues: [Int]
+
+        public init(recoveredDimensions: [String] = [], unexplainedValues: [Int] = []) {
+            self.recoveredDimensions = recoveredDimensions
+            self.unexplainedValues = unexplainedValues
+        }
+    }
+
+    /// The DXF text with its ``Report``.
+    public struct Output: Sendable {
+        public var text: String
+        public var report: Report
+    }
+
     public static func string(_ dwg: JWW.Drawing, options: Options = Options()) -> String {
+        output(dwg, options: options).text
+    }
+
+    /// Writes the DXF to `url` and returns what the writer inferred.
+    @discardableResult
+    public static func write(
+        _ dwg: JWW.Drawing, to url: URL, options: Options = Options()
+    ) throws -> Report {
+        let result = output(dwg, options: options)
+        try result.text.write(to: url, atomically: true, encoding: .utf8)
+        return result.report
+    }
+
+    /// The DXF text and a report of the dimensions it recovered and the values it could not explain.
+    ///
+    /// The report is empty unless ``Options/recoversDimensions`` is set.
+    public static func output(_ dwg: JWW.Drawing, options: Options = Options()) -> Output {
         var emitter = DXFEmitter(drawing: dwg, options: options)
         var blocks = ""
         for num in dwg.blocks.keys.sorted() {
             if let def = dwg.blocks[num] { emitter.emitBlock(def, into: &blocks) }
         }
+
+        // A recovered dimension is written where its first piece was, and its pieces are not
+        // written again as loose entities.
+        var report = Report()
+        var starting: [Int: [(JWW.RecoveredDimension, DXFDimension)]] = [:]
+        var consumed = Set<Int>()
+        if options.recoversDimensions {
+            let recovery = dwg.recoveringDimensions()
+            report.unexplainedValues = recovery.unmatchedValues
+            for found in recovery.dimensions {
+                guard let first = found.elementIndices.first,
+                    let dimension = DXFDimension(recovered: found.dimension)
+                else { continue }
+                starting[first, default: []].append((found, dimension))
+                consumed.formUnion(found.elementIndices)
+            }
+        }
+
         var entities = ""
         entities.reserveCapacity(dwg.elements.count * 120)
-        for element in dwg.elements {
+        for (index, element) in dwg.elements.enumerated() {
+            for (found, dimension) in starting[index] ?? [] {
+                emitter.emitRecovered(found, as: dimension, into: &entities)
+            }
+            if consumed.contains(index) { continue }
             emitter.emit(element, scale: emitter.scale(of: element), into: &entities)
         }
+        report.recoveredDimensions = emitter.recoveredHandles
+
         var s = "999\nSwiftJWW\n"
+        s += emitter.tables()
         if !blocks.isEmpty || !emitter.anonymousBlocks.isEmpty {
             s += "0\nSECTION\n2\nBLOCKS\n" + blocks + emitter.anonymousBlocks.joined()
             s += "0\nENDSEC\n"
         }
         s += "0\nSECTION\n2\nENTITIES\n" + entities + "0\nENDSEC\n0\nEOF\n"
-        return s
+        return Output(text: s, report: report)
     }
 
-    public static func write(
-        _ dwg: JWW.Drawing, to url: URL, options: Options = Options()
-    ) throws {
-        try string(dwg, options: options).write(to: url, atomically: true, encoding: .utf8)
+    /// The name of a DXF layer: the layer group and layer in hexadecimal, such as `0-E`.
+    static func layerName(group: Int, layer: Int) -> String {
+        "\(String(group, radix: 16, uppercase: true))-\(String(layer, radix: 16, uppercase: true))"
     }
 
     /// A coordinate or length as DXF text.

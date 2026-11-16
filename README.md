@@ -36,7 +36,11 @@ dependencies: [
 ```
 swift run jww2dxf drawing.jww            # → drawing.dxf
 swift run jww2dxf drawing.jww out.dxf
+swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
+
+`--full-size` writes full-size coordinates and `--recover-dimensions` writes the dimensions that
+`recoveringDimensions()` rebuilds as `DIMENSION` entities; see [Scale in the DXF](#scope--notes).
 
 ## Library
 
@@ -60,6 +64,11 @@ for element in dwg.elements {
 
 let dxf = DXFWriter.string(dwg)          // or DXFWriter.write(dwg, to: url)
 let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size coordinates
+
+// Dimensions rebuilt from loose pieces, with a report of what was inferred.
+let out = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
+out.report.recoveredDimensions   // handles of the DIMENSIONs that were rebuilt, not stored
+out.report.unexplainedValues     // indices into dwg.elements of value texts nothing explains
 ```
 
 `JWW.looksLikeJWW(data)` sniffs the `JwwData.` signature. `Drawing.entities` is the same geometry
@@ -94,6 +103,14 @@ bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` esc
 renders in AutoCAD / LibreCAD regardless of code page. (CP932 decoding uses CoreFoundation, which is
 reliable on Apple platforms; on Linux it falls back and Japanese may not decode, but geometry still
 converts.)
+
+**Layers, handles and recovered dimensions in the DXF.** Each entity has a handle (group 5), and its
+layer is named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export:
+layer 14 of layer group 0 is `0-E`. A `LAYER` table lists the layers used, with the JWW layer name
+(such as 寸法) as the description. With `Options.recoversDimensions` each dimension that
+`recoveringDimensions()` rebuilds is written as one `DIMENSION` with its loose pieces in the block it
+names, and `DXFWriter.output` reports the handles of those `DIMENSION`s and the value texts nothing
+explained. Dimensions rebuilt from loose pieces are inferred, so a consumer should treat them as such.
 
 **Scale in the DXF.** The writer keeps drawn coordinates unless `DXFWriter.Options.fullSize` is set.
 With it, each element is multiplied by the scale of its own layer group (a group at 1:80 by 80), so a
