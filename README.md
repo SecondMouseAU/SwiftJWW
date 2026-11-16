@@ -59,6 +59,7 @@ for element in dwg.elements {
 }
 
 let dxf = DXFWriter.string(dwg)          // or DXFWriter.write(dwg, to: url)
+let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size coordinates
 ```
 
 `JWW.looksLikeJWW(data)` sniffs the `JwwData.` signature. `Drawing.entities` is the same geometry
@@ -84,12 +85,21 @@ returned in `unresolved`.
 
 Covers **lines, arcs/circles/ellipses, points, text, block definitions + inserts, and dimensions**.
 Block definitions become DXF `BLOCK`s and inserts become `INSERT`s (`Drawing.blocks` holds the defs by
-number); dimension records are decomposed into their drawn parts in `Drawing.entities` and in the DXF.
+number); a dimension record becomes a DXF `DIMENSION` (a rotated linear dimension: measured points as
+groups 13 and 14, rotation as group 50) with its drawn parts in the anonymous block it names, and a
+record from a file older than 4.20, which has no measured points, is written as its drawn parts.
+`Drawing.entities` holds a record as its decomposed parts.
 **Text is decoded to Unicode at read time** (`Entity.text.string`) from the file's CP932 (Shift-JIS)
 bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` escapes so Japanese
 renders in AutoCAD / LibreCAD regardless of code page. (CP932 decoding uses CoreFoundation, which is
 reliable on Apple platforms; on Linux it falls back and Japanese may not decode, but geometry still
-converts.) The DXF writer does not apply the layer group scale.
+converts.)
+
+**Scale in the DXF.** The writer keeps drawn coordinates unless `DXFWriter.Options.fullSize` is set.
+With it, each element is multiplied by the scale of its own layer group (a group at 1:80 by 80), so a
+part drawn at 1:10 has the bounds of the same part drawn at 1:1, and the measured length of a
+`DIMENSION` is its stated value with no further scale. A block insert scales its position and scale
+factors, so its members follow the group of the insert, not their own.
 
 ## Validation
 

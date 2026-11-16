@@ -4,7 +4,7 @@ title: Components index
 resource: https://github.com/SecondMouseAU/SwiftJWW
 tags: [index]
 description: Public modules / API surfaces exposed by SwiftJWW.
-timestamp: 2026-11-12
+timestamp: 2026-11-16
 ---
 
 # Components
@@ -12,5 +12,6 @@ timestamp: 2026-11-12
 - **`SwiftJWW`** (library): parses a `.jww` file into typed 2D entities (lines, arcs, circles,
   ellipses, points, text, block inserts, dimensions) with their layer group, line type and colour,
   reads the layer groups with their scales, expands blocks, reads or recovers dimensions as one
-  object, and converts the drawing to DXF.
+  object, and converts the drawing to DXF, with dimension records written as `DIMENSION` entities
+  and an option to write full-size coordinates.
 - **`jww2dxf`** (executable): CLI wrapper that reads a JWW drawing and writes the DXF equivalent.

@@ -68,6 +68,7 @@ for element in dwg.elements {
 }
 
 let dxf = DXFWriter.string(dwg)          // or: try DXFWriter.write(dwg, to: url)
+let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size coordinates
 ```
 
 `JWW.looksLikeJWW(data)` sniffs the `JwwData.` signature.
@@ -169,11 +170,47 @@ against a real file, because none of the available drawings contains a block.
 | text | `TEXT` |
 | block definition | `BLOCK` (in the `BLOCKS` section) |
 | block insert | `INSERT` (refers to `BLK<number>`) |
-| dimension | decomposed into `LINE` / `TEXT` / `POINT` parts |
+| dimension record | `DIMENSION` (rotated linear), with its parts in an anonymous `*D<n>` block |
+| dimension record from a file older than 4.20 | decomposed into `LINE` / `TEXT` / `POINT` parts |
 
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values; JWW layer numbers become DXF layer
 names.
+
+### Dimension records
+
+A record with measured points (file version 4.20 and later) becomes one `DIMENSION` of type 0, a
+rotated linear dimension:
+
+| Group | Value |
+|---|---|
+| 13, 14 | the two measured points |
+| 10 | the start of the dimension line, which is on it |
+| 50 | the angle of the dimension line from the x axis, in degrees |
+| 11 | the text position |
+| 1 | the text as written, such as `1,930` |
+| 2 | the anonymous block, `*D1`, `*D2` and so on |
+
+The block holds the drawn parts: the dimension line, the text, the two witness lines and the two
+arrow points. The measured points are not drawn, so they are only in groups 13 and 14. A reader
+measures a rotated linear dimension as the distance between groups 13 and 14 along group 50, so the
+dimension line sets what is measured. A record whose dimension line has no length takes the
+direction of its measured points.
+
+### Scale
+
+The writer keeps drawn coordinates by default. `DXFWriter.Options(fullSize: true)` multiplies each
+element by the scale of its own layer group, so a group at 1:80 is written 80 times larger and a
+drawing whose groups differ in scale is not averaged. Lengths, radii, text height and the position
+and scale factors of an insert all follow. The layer group is the one in `Element.attributes`; a
+drawing with no layer groups, or a group with no usable scale, is written as drawn.
+
+Block members are written as drawn, in the block's own coordinates, and the insert carries the
+scale of its own layer group. A member in a layer group of a different scale does not use it.
+No available drawing contains a block, so this is not checked against a real file.
+
+With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
+times the layer group scale is the stated value.
 
 ---
 
@@ -182,7 +219,8 @@ names.
 Covers **lines, arcs/circles/ellipses, points, text, block definitions + inserts, and dimensions**.
 Block definitions are exposed on `Drawing.blocks` (keyed by number) and emitted as DXF `BLOCK`s, with
 `.insert` entities becoming `INSERT`s; dimension records are decomposed into their drawn parts in
-`Drawing.entities` and in the DXF. The DXF writer does not apply the layer group scale.
+`Drawing.entities`, and the DXF writer writes them as `DIMENSION`s. The DXF writer applies the layer
+group scale only when `Options.fullSize` is set.
 
 **Text encoding.** JWW stores text as **CP932 (Shift-JIS)** bytes; `Entity.text` carries the `string`
 decoded at read time with the system's CoreFoundation encoding tables, and the DXF writer emits
