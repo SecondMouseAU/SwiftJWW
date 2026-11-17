@@ -16,6 +16,19 @@ enum Fixtures {
         var testDescription: String { name }
     }
 
+    /// Every `.jww` under `SWIFTJWW_FIXTURES`, whether or not a DXF export lies beside it.
+    static let drawings: [URL] = {
+        guard let path = ProcessInfo.processInfo.environment["SWIFTJWW_FIXTURES"],
+            let walker = FileManager.default.enumerator(
+                at: URL(fileURLWithPath: path), includingPropertiesForKeys: nil)
+        else { return [] }
+        var found: [URL] = []
+        for case let url as URL in walker where url.pathExtension.lowercased() == "jww" {
+            found.append(url)
+        }
+        return found.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }()
+
     static let pairs: [Pair] = {
         guard let path = ProcessInfo.processInfo.environment["SWIFTJWW_FIXTURES"],
             let walker = FileManager.default.enumerator(

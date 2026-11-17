@@ -24,6 +24,11 @@ struct ReferenceDXF {
     var entities: [Entity] = []
     /// The records of the `BLOCKS` section, `BLOCK` and `ENDBLK` included, in file order.
     var blockRecords: [Entity] = []
+    /// The records of the `TABLES` section, `TABLE` and `ENDTAB` included, in file order.
+    var tableRecords: [Entity] = []
+
+    /// The `LAYER` records of the layer table.
+    var layers: [Entity] { tableRecords.filter { $0.type == "LAYER" } }
 
     /// The entities of each block, by block name.
     var blocks: [String: [Entity]] {
@@ -73,17 +78,17 @@ struct ReferenceDXF {
             let trimmed = value.trimmingCharacters(in: .whitespaces)
             if code == 0 {
                 if let finished = current {
-                    if section == "BLOCKS" {
-                        blockRecords.append(finished)
-                    } else {
-                        entities.append(finished)
+                    switch section {
+                    case "BLOCKS": blockRecords.append(finished)
+                    case "TABLES": tableRecords.append(finished)
+                    default: entities.append(finished)
                     }
                 }
                 current = nil
                 variable = nil
                 if trimmed == "ENDSEC" {
                     section = ""
-                } else if section == "ENTITIES" || section == "BLOCKS", trimmed != "SECTION",
+                } else if ["ENTITIES", "BLOCKS", "TABLES"].contains(section), trimmed != "SECTION",
                     trimmed != "EOF"
                 {
                     current = Entity(type: trimmed)
@@ -96,7 +101,7 @@ struct ReferenceDXF {
                 } else if let name = variable, header[name]?[code] == nil {
                     header[name, default: [:]][code] = trimmed
                 }
-            } else if section == "ENTITIES" || section == "BLOCKS" {
+            } else if ["ENTITIES", "BLOCKS", "TABLES"].contains(section) {
                 current?.groups[code, default: []].append(value)
             }
             previous = (code, trimmed)

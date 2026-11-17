@@ -41,9 +41,12 @@ dependencies: [
 ```
 swift run jww2dxf drawing.jww            # → drawing.dxf
 swift run jww2dxf drawing.jww out.dxf
+swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
 
-Prints a one-line summary (version, entity counts, bbox) and writes the DXF.
+Prints a one-line summary (version, entity counts, bbox) and writes the DXF. `--full-size` and
+`--recover-dimensions` set the [writer options](#scale) of the same names, and with the second the
+summary adds how many dimensions were recovered and how many values stayed unexplained.
 
 ---
 
@@ -174,8 +177,20 @@ against a real file, because none of the available drawings contains a block.
 | dimension record from a file older than 4.20 | decomposed into `LINE` / `TEXT` / `POINT` parts |
 
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
-tools. JWW pen colours pass through as AutoCAD Color Index values; JWW layer numbers become DXF layer
-names.
+tools. JWW pen colours pass through as AutoCAD Color Index values.
+
+### Layers and handles
+
+A layer is named `<group>-<layer>` with both numbers in hexadecimal, the convention of Jw_cad's own
+DXF and DWG export: layer 14 of group 0 is `0-E`, and layer 14 of group 1 is `1-E`, so the groups no
+longer share layers. A `TABLES` section holds a `LTYPE` table with `CONTINUOUS` and a `LAYER` table of
+layer `0` and every layer the entities use. A layer that has a JWW name carries it as its
+description, in the `AcAecLayerStandard` extended data AutoCAD keeps layer descriptions in (so
+`0-E` is described as 寸法, "dimensions").
+
+Every entity, `BLOCK`, `ENDBLK` and table record has a handle (group 5), in hexadecimal and unique in
+the file. The handles follow the order of writing, so the same drawing and options give the same
+handles.
 
 ### Dimension records
 
@@ -196,6 +211,43 @@ arrow points. The measured points are not drawn, so they are only in groups 13 a
 measures a rotated linear dimension as the distance between groups 13 and 14 along group 50, so the
 dimension line sets what is measured. A record whose dimension line has no length takes the
 direction of its measured points.
+
+### Recovered dimensions
+
+`DXFWriter.Options(recoversDimensions: true)` runs `recoveringDimensions()` and writes each
+dimension it rebuilds as one rotated linear `DIMENSION`, at the place its first piece had among the
+other elements. The loose lines, points and text it was built from go in the anonymous block it names,
+and are not written again as entities. A value text no dimension explains stays a loose `TEXT`. A
+piece that two chained dimensions share is in both blocks.
+
+| Group | Value |
+|---|---|
+| 13, 14 | the ends of the two witness lines away from the dimension line; the arrow point on a side with no witness line |
+| 10 | the midpoint of the arrow points, which is on the dimension line |
+| 50 | the angle of the dimension line from the first arrow point to the second |
+| 11 | the text position |
+| 1 | the text as written, such as `10,439` |
+| 8 | the layer, such as `0-E` |
+
+If the witness line ends would not measure the arrow distance along the dimension line, which a
+slanted witness line causes, both sides take the arrow points.
+
+`DXFWriter.output(_:options:)` returns the text with a `Report`. `Report.recoveredDimensions`
+lists the handles of the `DIMENSION`s that were rebuilt from loose pieces rather than read from a
+stored record, so a consumer can mark them as inferred. `Report.unexplainedValues` lists the
+indices into `Drawing.elements` of the dimension value texts no dimension explains. The report is
+empty without the option, and `DXFWriter.write(_:to:options:)` returns it.
+
+On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
+
+| Drawing | Dimensions | Values unexplained |
+|---|---|---|
+| `2120` | 29, all on `0-E`, with nothing else left on that layer | 0 |
+| `eitakyouta_3` | 13 | 1 |
+| `dd12` | 14 | 2 |
+
+With full size, each measures its stated value to within one unit of the last decimal place of its
+text, the same tolerance the recovery matches with.
 
 ### Scale
 
