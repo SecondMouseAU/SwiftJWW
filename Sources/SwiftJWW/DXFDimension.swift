@@ -2,12 +2,6 @@ import Foundation
 
 /// The groups of a rotated linear DXF `DIMENSION`, taken from a JWW dimension.
 struct DXFDimension {
-    /// The parts of a record that are drawn.
-    ///
-    /// They are the dimension line, the text, two witness lines and two arrow points. The two
-    /// measured points that follow are not drawn.
-    static let drawnPartCount = 6
-
     /// A point on the dimension line (group 10).
     var onLine: JWW.Point
     /// The text position (group 11).

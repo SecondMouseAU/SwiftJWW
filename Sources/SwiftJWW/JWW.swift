@@ -45,7 +45,10 @@ public enum JWW {
         case insert(
             def: Int, at: Point, scaleX: Double, scaleY: Double, rotationRad: Double, layer: Int,
             color: Int)
-        /// A dimension, decomposed into its drawn parts (dimension line, value text, witness lines).
+        /// A dimension, decomposed into its parts, in this order: the dimension line, the value
+        /// text, two witness lines and two arrow points. A file of version 4.20 or later adds two
+        /// measured points, which are reference points and not drawn. A file older than 4.20 holds
+        /// only the dimension line and the text.
         case dimension(parts: [Entity], layer: Int)
     }
 
