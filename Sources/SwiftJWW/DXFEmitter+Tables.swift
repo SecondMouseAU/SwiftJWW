@@ -1,15 +1,22 @@
 import Foundation
 
 extension DXFEmitter {
+    /// The linetypes of the `LTYPE` table.
+    ///
+    /// Each is a solid line with no pattern, and the record count of the table is taken from here.
+    private static let linetypes = [(name: "CONTINUOUS", description: "Solid line")]
+
     /// The `TABLES` section: the linetype and the layers the entities use.
     ///
     /// A layer with a JWW name carries it as its description, in the extended data AutoCAD keeps
     /// layer descriptions in.
     mutating func tables() -> String {
         var s = "0\nSECTION\n2\nTABLES\n"
-        s += "0\nTABLE\n2\nLTYPE\n70\n1\n"
-        s +=
-            "0\nLTYPE\n5\n\(handle())\n2\nCONTINUOUS\n70\n0\n3\nSolid line\n72\n65\n73\n0\n40\n0.0\n"
+        s += "0\nTABLE\n2\nLTYPE\n70\n\(DXFEmitter.linetypes.count)\n"
+        for linetype in DXFEmitter.linetypes {
+            s += "0\nLTYPE\n5\n\(handle())\n2\n\(linetype.name)\n70\n0\n"
+            s += "3\n\(linetype.description)\n72\n65\n73\n0\n40\n0.0\n"
+        }
         s += "0\nENDTAB\n"
 
         let names = Set(layers.keys).union(["0"]).sorted()

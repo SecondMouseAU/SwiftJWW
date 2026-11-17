@@ -2,23 +2,25 @@ import Foundation
 import SwiftJWW
 
 let usage = "usage: jww2dxf [--full-size] [--recover-dimensions] <in.jww> [out.dxf]\n"
+
+/// Says what is wrong with the arguments, then how to use the command, and stops with status 2.
+func usageError(_ problem: String) -> Never {
+    FileHandle.standardError.write("jww2dxf: \(problem)\n\(usage)".data(using: .utf8)!)
+    exit(2)
+}
+
 var options = DXFWriter.Options()
 var paths: [String] = []
 for argument in CommandLine.arguments.dropFirst() {
     switch argument {
     case "--full-size": options.fullSize = true
     case "--recover-dimensions": options.recoversDimensions = true
-    case _ where argument.hasPrefix("--"):
-        FileHandle.standardError.write(
-            "jww2dxf: unknown option \(argument)\n\(usage)".data(using: .utf8)!)
-        exit(2)
+    case _ where argument.hasPrefix("--"): usageError("unknown option \(argument)")
     default: paths.append(argument)
     }
 }
-guard !paths.isEmpty, paths.count <= 2 else {
-    FileHandle.standardError.write(usage.data(using: .utf8)!)
-    exit(2)
-}
+if paths.isEmpty { usageError("no input file") }
+if paths.count > 2 { usageError("too many arguments") }
 let inURL = URL(fileURLWithPath: paths[0])
 let outURL =
     paths.count >= 2

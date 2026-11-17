@@ -73,6 +73,16 @@ struct DXFWriterLayerTests {
         #expect(table.number(70) == 3)
     }
 
+    @Test("the linetype table counts the linetypes it lists")
+    func linetypeTable() throws {
+        let dwg = helper.drawing([entity(group: 0, layer: 0)])
+        let dxf = try ReferenceDXF(text: DXFWriter.string(dwg))
+        let table = try #require(dxf.tableRecords.first { $0.text(2) == "LTYPE" })
+        let listed = dxf.tableRecords.filter { $0.type == "LTYPE" }
+        #expect(listed.compactMap { $0.text(2) } == ["CONTINUOUS"])
+        #expect(table.number(70) == Double(listed.count))
+    }
+
     @Test("a layer's JWW name is its description")
     func layerDescription() throws {
         var groups = (0..<16).map { JWW.LayerGroup(index: $0, scale: 1) }
