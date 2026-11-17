@@ -50,7 +50,9 @@ struct DXFEmitter {
         {
             emitDimension(
                 dimension.scaled(by: scale),
-                members: parts.prefix(DXFDimension.drawnPartCount).map { $0.scaled(by: scale) },
+                members: parts.prefix(JWW.Dimension.PartLayout.drawn.upperBound).map {
+                    $0.scaled(by: scale)
+                },
                 group: attributes.layerGroup, layer: layer, color: attributes.color, into: &s)
             return
         }

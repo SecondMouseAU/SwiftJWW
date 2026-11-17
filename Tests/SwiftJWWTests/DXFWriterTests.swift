@@ -90,6 +90,19 @@ struct DXFWriterTests {
         #expect(block.number(70) == 1)
     }
 
+    @Test("the block holds none of the points the reader takes as measured points")
+    func blockExcludesMeasuredPoints() throws {
+        let element = record(length: 10, label: "500")
+        let parsed = try #require(JWW.Dimension(element))
+        #expect(parsed.measuredPoints.map(\.y) == [0.5, 0.5])
+        #expect(parsed.arrowPoints.map(\.y) == [0, 0])
+        let dxf = try read(DXFWriter.string(drawing([element])))
+        let name = try #require(dxf.entities.first?.text(2))
+        let members = try #require(dxf.blocks[name])
+        #expect(members.count == JWW.Dimension.PartLayout.drawn.count)
+        #expect(!members.contains { $0.type == "POINT" && $0.number(20) == 0.5 })
+    }
+
     @Test("a vertical dimension line gives a 90 degree rotation, measured along it")
     func verticalRotation() throws {
         let parts: [JWW.Entity] = [
