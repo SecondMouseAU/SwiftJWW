@@ -22,6 +22,25 @@ struct ReferenceDXF {
     /// Header variable to group code to first value, such as `$EXTMAX` to `10` to `23760`.
     var header: [String: [Int: String]] = [:]
     var entities: [Entity] = []
+    /// The records of the `BLOCKS` section, `BLOCK` and `ENDBLK` included, in file order.
+    var blockRecords: [Entity] = []
+
+    /// The entities of each block, by block name.
+    var blocks: [String: [Entity]] {
+        var found: [String: [Entity]] = [:]
+        var name: String?
+        for record in blockRecords {
+            switch record.type {
+            case "BLOCK":
+                name = record.text(2)
+                if let name { found[name] = [] }
+            case "ENDBLK": name = nil
+            default:
+                if let name { found[name, default: []].append(record) }
+            }
+        }
+        return found
+    }
 
     /// A line that should hold a group code but does not: the file is not a well-formed DXF.
     struct MalformedError: Error, CustomStringConvertible {
@@ -53,12 +72,20 @@ struct ReferenceDXF {
             let value = String(lines[i + 1])
             let trimmed = value.trimmingCharacters(in: .whitespaces)
             if code == 0 {
-                if let finished = current { entities.append(finished) }
+                if let finished = current {
+                    if section == "BLOCKS" {
+                        blockRecords.append(finished)
+                    } else {
+                        entities.append(finished)
+                    }
+                }
                 current = nil
                 variable = nil
                 if trimmed == "ENDSEC" {
                     section = ""
-                } else if section == "ENTITIES", trimmed != "SECTION", trimmed != "EOF" {
+                } else if section == "ENTITIES" || section == "BLOCKS", trimmed != "SECTION",
+                    trimmed != "EOF"
+                {
                     current = Entity(type: trimmed)
                 }
             } else if code == 2, previous?.code == 0, previous?.value == "SECTION" {
@@ -69,7 +96,7 @@ struct ReferenceDXF {
                 } else if let name = variable, header[name]?[code] == nil {
                     header[name, default: [:]][code] = trimmed
                 }
-            } else if section == "ENTITIES" {
+            } else if section == "ENTITIES" || section == "BLOCKS" {
                 current?.groups[code, default: []].append(value)
             }
             previous = (code, trimmed)

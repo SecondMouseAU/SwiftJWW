@@ -102,26 +102,40 @@ extension JWW {
 }
 
 extension JWW.Dimension {
-    /// Reads a dimension record, whose parts are in the order ``JWW/Entity/dimension(parts:layer:)``
-    /// lists them.
+    /// Where each part sits in the `parts` of ``JWW/Entity/dimension(parts:layer:)``.
+    ///
+    /// The reader here and the DXF writer both take the positions from this one place. A file
+    /// older than version 4.20 stores only the dimension line and the text.
+    enum PartLayout {
+        static let line = 0
+        static let text = 1
+        static let extensionLines = 2..<4
+        static let arrowPoints = 4..<6
+        static let measuredPoints = 6..<8
+        /// The parts Jw_cad draws: all but the two measured points, which are reference points.
+        static let drawn = 0..<6
+    }
+
+    /// Reads a dimension record, whose parts are in the order of ``PartLayout``.
     init?(_ element: JWW.Element) {
-        guard case .dimension(let parts, _) = element.entity, parts.count >= 2,
-            case .line(let a, let b, _, _) = parts[0],
-            case .text(let at, let height, let width, let angle, let string, _, _) = parts[1]
+        guard case .dimension(let parts, _) = element.entity, parts.count > PartLayout.text,
+            case .line(let a, let b, _, _) = parts[PartLayout.line],
+            case .text(let at, let height, let width, let angle, let string, _, _) =
+                parts[PartLayout.text]
         else { return nil }
         var extensionLines: [Segment] = []
         var arrowPoints: [JWW.Point] = []
         var measuredPoints: [JWW.Point] = []
-        if parts.count >= 8 {
-            for part in parts[2...3] {
+        if parts.count >= PartLayout.measuredPoints.upperBound {
+            for part in parts[PartLayout.extensionLines] {
                 if case .line(let a, let b, _, _) = part {
                     extensionLines.append(Segment(a: a, b: b))
                 }
             }
-            for part in parts[4...5] {
+            for part in parts[PartLayout.arrowPoints] {
                 if case .point(let p, _, _) = part { arrowPoints.append(p) }
             }
-            for part in parts[6...7] {
+            for part in parts[PartLayout.measuredPoints] {
                 if case .point(let p, _, _) = part { measuredPoints.append(p) }
             }
         }
