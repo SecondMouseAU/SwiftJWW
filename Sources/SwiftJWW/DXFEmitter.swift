@@ -145,8 +145,10 @@ struct DXFEmitter {
                 p(21, num(sin(tilt) * r))
                 p(31, "0.0")  // major axis endpoint, rel. to center
                 p(40, num(ratio))
-                p(41, num(full ? 0 : start))
-                p(42, num(full ? 2 * .pi : start + sweep))
+                // An ELLIPSE runs counter-clockwise from group 41 to group 42, so a negative sweep
+                // is written from its far end, as an ARC is.
+                p(41, num(full ? 0 : min(start, start + sweep)))
+                p(42, num(full ? 2 * .pi : max(start, start + sweep)))
             }
 
         case .point(let at, let layer, let color):
