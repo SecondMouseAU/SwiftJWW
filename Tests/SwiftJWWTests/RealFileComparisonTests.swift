@@ -29,6 +29,15 @@ enum Fixtures {
         return found.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }()
 
+    /// The drawings of ``drawings`` that hold block definitions, and any that cannot be read.
+    ///
+    /// An unreadable drawing is kept, so that the test which reads it fails on it with the error
+    /// instead of covering fewer drawings without saying so.
+    static let blockDrawings: [URL] = drawings.filter {
+        guard let drawing = try? JWW.read(contentsOf: $0) else { return true }
+        return !drawing.blocks.isEmpty
+    }
+
     static let pairs: [Pair] = {
         guard let path = ProcessInfo.processInfo.environment["SWIFTJWW_FIXTURES"],
             let walker = FileManager.default.enumerator(

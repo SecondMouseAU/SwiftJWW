@@ -138,8 +138,11 @@ The drawings are not licensed for redistribution, so they are not in this reposi
 comparison, put each `<name>.jww` beside its `<name>.dxf` in a folder and run
 `SWIFTJWW_FIXTURES=/path/to/folder swift test`; without the variable the test is skipped.
 
-None of those 13 drawings contains a dimension record or a block, so block expansion and dimension
-records are validated on synthetic fixtures only.
+None of those 13 drawings contains a dimension record or a block. Block expansion is checked on 271
+further TECS drawings whose DXF holds blocks (29,332 inserts): after the inserts of the DXF are
+placed, 1,323,803 entities match the expanded JWW, and the DXF the writer writes for each of them
+places to the same entities. Those inserts are never rotated, mirrored or scaled unevenly, so those
+cases, dimension records and solids are validated on synthetic fixtures only.
 
 DWG output is out of scope (proprietary); produce DXF here and convert to DWG downstream (e.g. the free
 ODA File Converter) if needed.
