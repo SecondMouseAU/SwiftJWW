@@ -133,17 +133,32 @@ struct DXFEmitter {
                 }
             } else {  // ellipse / elliptical arc
                 head("ELLIPSE", layer, color)
+                // DXF puts the major axis in group 11 and allows a ratio of at most 1. JWW takes
+                // the axis along its tilt as the radius and scales the other by the ratio, so a
+                // ratio above 1 makes the perpendicular axis the longer one. That axis becomes the
+                // major one, the ratio its reciprocal, and each parameter turns back a quarter turn
+                // because it is now measured from the other axis.
+                let swapped = ratio > 1
+                let axis = swapped ? tilt + .pi / 2 : tilt
+                let majorRadius = swapped ? r * ratio : r
                 p(10, num(c.x))
                 p(20, num(c.y))
                 p(30, "0.0")
-                p(11, num(cos(tilt) * r))
-                p(21, num(sin(tilt) * r))
+                p(11, num(cos(axis) * majorRadius))
+                p(21, num(sin(axis) * majorRadius))
                 p(31, "0.0")  // major axis endpoint, rel. to center
-                p(40, num(ratio))
-                // The parameters are measured from the major axis, in radians, as JWW's are.
+                p(40, num(swapped ? 1 / ratio : ratio))
+                // The parameters are in radians. Those of a swapped ellipse are brought into
+                // [0, 2π), where DXF keeps them.
+                func parameter(_ t: Double) -> Double {
+                    guard swapped else { return t }
+                    let a = (t - .pi / 2).truncatingRemainder(dividingBy: 2 * .pi)
+                    return a < 0 ? a + 2 * .pi : a
+                }
                 let ends = JWW.Entity.counterClockwiseEnds(start: start, sweep: sweep)
-                p(41, num(full ? 0 : ends.start))
-                p(42, num(full ? 2 * .pi : ends.end))
+                let all = full || abs(abs(sweep) - 2 * .pi) < 1e-6
+                p(41, num(all ? 0 : parameter(ends.start)))
+                p(42, num(all ? 2 * .pi : parameter(ends.end)))
             }
 
         case .point(let at, let layer, let color):

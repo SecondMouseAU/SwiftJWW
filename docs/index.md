@@ -194,6 +194,12 @@ A DXF `ARC` or `ELLIPSE` runs counter-clockwise from its start to its end, so a 
 elliptical arc with a negative sweep is written from its far end. The DXF then covers the same part
 of the curve as the JWW.
 
+A DXF `ELLIPSE` has its major axis along the longer axis and a ratio of at most 1. JWW takes the
+axis along its tilt as the radius and scales the other by the ratio, so an ellipse with a ratio
+above 1 is longer across the tilt. It is written with the perpendicular axis as the major axis, the
+reciprocal ratio, and its start and end parameters turned back a quarter turn. The DXF draws the
+same curve.
+
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values.
 

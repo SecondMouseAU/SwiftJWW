@@ -99,4 +99,19 @@ struct RealFileDXFWriterTests {
         let onLayer = dxf.entities.filter { $0.layer == "0-E" }
         #expect(onLayer.count == 29 && onLayer.allSatisfy { $0.type == "DIMENSION" })
     }
+
+    @Test(
+        "no ELLIPSE written from a real drawing has a ratio above 1",
+        .enabled(if: !Fixtures.drawings.isEmpty), arguments: Fixtures.drawings)
+    func ellipseRatios(_ url: URL) throws {
+        let name = url.deletingPathExtension().lastPathComponent
+        let dwg = try JWW.read(contentsOf: url)
+        let dxf = try ReferenceDXF(text: DXFWriter.string(dwg))
+        let ellipses = (dxf.entities + dxf.blockRecords).filter { $0.type == "ELLIPSE" }
+        print("\(name): \(ellipses.count) ellipses")
+        for d in ellipses {
+            let ratio = try #require(d.number(40), "\(name)")
+            #expect(ratio > 0 && ratio <= 1, "\(name): ratio \(ratio)")
+        }
+    }
 }
