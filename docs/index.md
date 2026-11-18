@@ -45,10 +45,10 @@ swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
 
 Prints a one-line summary (version, entity counts, what was skipped, bbox) and writes the DXF. The
-skipped solid fills are those at the top level and those in block definitions, each counted once.
-`--full-size` and `--recover-dimensions` set the [writer options](#scale) of the same names, and with
-the second the summary adds how many dimensions were recovered and how many values stayed
-unexplained.
+skipped solid fills are `Drawing.skippedSolidCount`: those at the top level and those in block
+definitions, each counted once. `--full-size` and `--recover-dimensions` set the
+[writer options](#scale) of the same names, and with the second the summary adds how many
+dimensions were recovered and how many values stayed unexplained.
 
 ---
 
@@ -109,8 +109,10 @@ source compatibility.
 The reader skips solid fills (`CDataSolid`) without reading their shape, so a count is all that is
 left of them. `counts.solid` counts the top-level ones. A solid fill inside a block definition is
 counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again,
-including an insert inside another block. `BlockExpansion.solidCount` is the total the expanded
-drawing holds: the top-level fills, plus each expanded insert's block count.
+including an insert inside another block. `Drawing.skippedSolidCount` is the number the file
+stores: the top-level fills plus each block definition's, counted once. `BlockExpansion.solidCount`
+is the total the expanded drawing holds: the top-level fills, plus each expanded insert's block
+count.
 
 `text.angleRad` is in radians. The file stores the angle in degrees; earlier releases passed the stored
 number through unconverted, so a text turned 90 degrees read as 90 radians.

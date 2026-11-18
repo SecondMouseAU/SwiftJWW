@@ -91,8 +91,9 @@ from in `element.references`; inserts of an undefined block, or of a block that 
 returned in `unresolved`.
 
 **Solid fills** are skipped, not read. `dwg.counts.solid` counts the top-level ones and
-`BlockDef.solidCount` those inside each block definition. `expandingBlocks().solidCount` adds them
-up as the inserts place them, nested blocks included.
+`BlockDef.solidCount` those inside each block definition; `dwg.skippedSolidCount` is the two
+together, each definition counted once. `expandingBlocks().solidCount` adds them up as the inserts
+place them, nested blocks included.
 
 ## Scope & notes
 
