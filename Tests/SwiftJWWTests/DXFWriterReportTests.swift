@@ -47,7 +47,9 @@ struct DXFWriterReportTests {
             let members = try #require(dxf.blocks[name])
             #expect(indices.count == members.count)
             for (index, member) in zip(indices, members) {
-                let piece = try #require(drawnAs(dwg.elements[index]))
+                // The recovery builds a dimension from lines, points and text only.
+                let piece = try #require(
+                    drawnAs(dwg.elements[index]), "piece \(index) is not a line, point or text")
                 #expect(member.type == piece.type)
                 for (code, value) in piece.points { #expect(member.number(code) == value) }
             }
@@ -99,5 +101,42 @@ struct DXFWriterReportTests {
         let dwg = writer.drawing([insert], blocks: [7: def], scales: [0: 10, 3: 50])
         let report = DXFWriter.output(dwg, options: .init(fullSize: true)).report
         #expect(report.appliedScales == [0: 10])
+    }
+
+    @Test("each piece, times its own layer group's applied scale, is where the DXF draws it")
+    func piecesAtTheirGroupScale() throws {
+        // The 800 dimension in group 0 at 1:80, with a line along its dimension line and a witness
+        // line in group 1 at 1:10. The recovery uses pieces of the text's group only, so the
+        // factor of each piece's own group is the one its DIMENSION was written at.
+        func inGroup1(_ element: JWW.Element) -> JWW.Element {
+            var element = element
+            element.attributes.layerGroup = 1
+            return element
+        }
+        var groups = (0..<16).map { JWW.LayerGroup(index: $0, scale: 80) }
+        groups[1].scale = 10
+        let elements =
+            recovery.sample + [
+                inGroup1(dimensions.dimLine(2, 0, 8, 0)), inGroup1(dimensions.dimLine(0, 0, 0, -3)),
+            ]
+        let dwg = JWW.Drawing(
+            version: 700, elements: elements, blocks: [:], counts: .init(), layerGroups: groups)
+        let output = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
+        #expect(output.report.appliedScales == [0: 80, 1: 10])
+        let dxf = try ReferenceDXF(text: output.text)
+        let dimension = try #require(dxf.entities.first { $0.type == "DIMENSION" })
+        let handle = try #require(dimension.text(5))
+        let name = try #require(dimension.text(2))
+        let indices = try #require(output.report.recoveredDimensionElements[handle])
+        let members = try #require(dxf.blocks[name])
+        #expect(indices == [0, 1, 2, 3, 4, 5])
+        for (index, member) in zip(indices, members) {
+            let element = dwg.elements[index]
+            let factor = try #require(output.report.appliedScales[element.attributes.layerGroup])
+            let piece = try #require(drawnAs(element))
+            for (code, value) in piece.points {
+                #expect(abs((member.number(code) ?? .nan) - value * factor) < 1e-6)
+            }
+        }
     }
 }
