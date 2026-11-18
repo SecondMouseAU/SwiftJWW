@@ -70,7 +70,7 @@ struct RealFileDXFWriterTests {
     }
 
     @Test(
-        "the 2120's 29 rebuilt dimensions name their pieces, which are the 125 elements on 0-E",
+        "the 2120's rebuilt dimensions name their pieces, which are the 125 elements on 0-E",
         .enabled(if: Fixtures.drawings.contains { $0.lastPathComponent == "2120.jww" }))
     func piecesOf2120() throws {
         let url = try #require(Fixtures.drawings.first { $0.lastPathComponent == "2120.jww" })

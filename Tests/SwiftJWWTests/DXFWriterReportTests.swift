@@ -20,12 +20,12 @@ struct DXFWriterReportTests {
             ])
     }
 
-    /// The DXF entity type an element's entity is written as, and its first point.
-    func drawnAs(_ element: JWW.Element) -> (type: String, x: Double, y: Double)? {
+    /// The DXF entity type an element's entity is written as, and its points by group code.
+    func drawnAs(_ element: JWW.Element) -> (type: String, points: [Int: Double])? {
         switch element.entity {
-        case .line(let a, _, _, _): ("LINE", a.x, a.y)
-        case .point(let at, _, _): ("POINT", at.x, at.y)
-        case .text(let at, _, _, _, _, _, _): ("TEXT", at.x, at.y)
+        case .line(let a, let b, _, _): ("LINE", [10: a.x, 20: a.y, 11: b.x, 21: b.y])
+        case .point(let at, _, _): ("POINT", [10: at.x, 20: at.y])
+        case .text(let at, _, _, _, _, _, _): ("TEXT", [10: at.x, 20: at.y])
         default: nil
         }
     }
@@ -49,7 +49,7 @@ struct DXFWriterReportTests {
             for (index, member) in zip(indices, members) {
                 let piece = try #require(drawnAs(dwg.elements[index]))
                 #expect(member.type == piece.type)
-                #expect(member.number(10) == piece.x && member.number(20) == piece.y)
+                for (code, value) in piece.points { #expect(member.number(code) == value) }
             }
         }
         let lists = output.report.recoveredDimensions.map {

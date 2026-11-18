@@ -248,7 +248,9 @@ returns the report too:
 The three dimension fields are empty without the option. Once the DXF is parsed, a dimension's
 handle links it to its pieces in the JWW: the value text, the arrow points, the dimension line and
 the extension lines, with each one's text, position and layer. A piece that two chained dimensions
-share is listed for both, and a value text stored twice at the same place is listed with its copy.
+share is listed for both, and a dimension's value text stored twice at the same place is listed
+with its copy. A JWW element's position is in drawn coordinates: times `appliedScales` for its
+layer group, it is where the DXF draws the piece.
 
 On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
 
