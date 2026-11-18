@@ -44,10 +44,11 @@ public enum DXFWriter {
         ///
         /// Each list is the ``JWW/RecoveredDimension/elementIndices`` of that dimension.
         public var recoveredDimensionElements: [String: [Int]]
-        /// The factor the coordinates of each layer group were multiplied by, keyed by group number.
+        /// The factor the top-level elements of each layer group were multiplied by, keyed by group.
         ///
         /// Every layer group of a top-level element is listed. The factor is the group's scale with
-        /// ``Options/fullSize`` when that scale is finite and positive, and 1 otherwise.
+        /// ``Options/fullSize`` when that scale is finite and positive, and 1 otherwise. A block
+        /// member is written as drawn and takes the factor of the insert that places it.
         public var appliedScales: [Int: Double]
 
         public init(
@@ -92,12 +93,13 @@ public enum DXFWriter {
             if let def = dwg.blocks[num] { emitter.emitBlock(def, into: &blocks) }
         }
 
-        // A recovered dimension is written where its first piece was, and its pieces are not
-        // written again as loose entities.
         var report = Report()
         for group in Set(dwg.elements.map(\.attributes.layerGroup)) {
             report.appliedScales[group] = emitter.scale(ofGroup: group)
         }
+
+        // A recovered dimension is written where its first piece was, and its pieces are not
+        // written again as loose entities.
         var starting: [Int: [(JWW.RecoveredDimension, DXFDimension)]] = [:]
         var consumed = Set<Int>()
         if options.recoversDimensions {

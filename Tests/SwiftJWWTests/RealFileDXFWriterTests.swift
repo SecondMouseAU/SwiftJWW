@@ -62,7 +62,10 @@ struct RealFileDXFWriterTests {
         let groups = Set(dwg.elements.map(\.attributes.layerGroup))
         #expect(Set(output.report.appliedScales.keys) == groups, "\(name)")
         for group in groups {
-            #expect(output.report.appliedScales[group] == dwg.scale(ofLayerGroup: group), "\(name)")
+            // The writer's rule: the stated scale when it is finite and positive, otherwise 1.
+            let stated = dwg.scale(ofLayerGroup: group) ?? 1
+            let factor = stated.isFinite && stated > 0 ? stated : 1
+            #expect(output.report.appliedScales[group] == factor, "\(name)")
         }
     }
 
@@ -74,17 +77,15 @@ struct RealFileDXFWriterTests {
         let dwg = try JWW.read(contentsOf: url)
         let report = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
             .report
-        #expect(report.recoveredDimensions.count == 29)
+        // The count and the match with recoveringDimensions() are checked in writesRecovered.
         #expect(Set(report.recoveredDimensionElements.keys) == Set(report.recoveredDimensions))
-        let lists = report.recoveredDimensions.map { report.recoveredDimensionElements[$0] ?? [] }
-        #expect(lists == dwg.recoveringDimensions().dimensions.map(\.elementIndices))
         let onLayer = dwg.elements.indices.filter {
             let attributes = dwg.elements[$0].attributes
             return DXFWriter.layerName(group: attributes.layerGroup, layer: attributes.layer)
                 == "0-E"
         }
         #expect(onLayer.count == 125)
-        #expect(Set(lists.joined()) == Set(onLayer))
+        #expect(Set(report.recoveredDimensionElements.values.joined()) == Set(onLayer))
     }
 
     @Test(

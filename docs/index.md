@@ -243,7 +243,7 @@ returns the report too:
 | `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
 | `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from and holds in its block, in that order: the `elementIndices` `recoveringDimensions()` gives for it |
 | `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
-| `appliedScales` | the factor each layer group's coordinates were multiplied by ([Scale](#scale)) |
+| `appliedScales` | the factor the top-level elements of each layer group were multiplied by ([Scale](#scale)) |
 
 The three dimension fields are empty without the option. Once the DXF is parsed, a dimension's
 handle links it to its pieces in the JWW: the value text, the arrow points, the dimension line and
@@ -276,10 +276,11 @@ No available drawing contains a block, so this is not checked against a real fil
 With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
 times the layer group scale is the stated value.
 
-`Report.appliedScales` gives the factor the writer multiplied each layer group by, keyed by group
-number, for every layer group that holds a top-level element: the group's scale with full size when
-that scale is finite and positive, and 1 otherwise. A group only block members use is not listed,
-since the insert carries the scale.
+`Report.appliedScales` gives the factor the writer multiplied the top-level elements of each layer
+group by, keyed by group number, for every layer group that holds a top-level element: the group's
+scale with full size when that scale is finite and positive, and 1 otherwise. A block member is
+written as drawn and takes the factor of the insert that places it, whatever its own group, so a
+group only block members use is not listed.
 
 ---
 

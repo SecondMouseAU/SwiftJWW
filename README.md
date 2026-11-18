@@ -68,9 +68,9 @@ let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size 
 // Dimensions rebuilt from loose pieces, with a report of what was inferred.
 let out = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
 out.report.recoveredDimensions   // handles of the DIMENSIONs that were rebuilt, not stored
-out.report.recoveredDimensionElements[handle]   // indices into dwg.elements of its pieces
+out.report.recoveredDimensionElements   // for each of those handles, the indices of its pieces
 out.report.unexplainedValues     // indices into dwg.elements of value texts nothing explains
-out.report.appliedScales         // the factor each layer group was multiplied by
+out.report.appliedScales         // the factor applied to each layer group's top-level elements
 DXFWriter.layerName(group: 0, layer: 14)   // "0-E", the layer name the writer uses
 ```
 
