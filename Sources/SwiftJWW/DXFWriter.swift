@@ -32,7 +32,8 @@ public enum DXFWriter {
         }
     }
 
-    /// What the writer inferred, which the DXF text alone does not say.
+    /// What the DXF text alone does not say: the dimensions the writer inferred and the scales it
+    /// applied.
     public struct Report: Equatable, Sendable {
         /// The handles (group 5) of the `DIMENSION`s rebuilt from loose pieces, not read from a
         /// stored record.
@@ -72,7 +73,7 @@ public enum DXFWriter {
         output(dwg, options: options).text
     }
 
-    /// Writes the DXF to `url` and returns what the writer inferred.
+    /// Writes the DXF to `url` and returns its ``Report``.
     @discardableResult
     public static func write(
         _ dwg: JWW.Drawing, to url: URL, options: Options = Options()

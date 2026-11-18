@@ -241,7 +241,7 @@ returns the report too:
 | Field | Value |
 |---|---|
 | `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
-| `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from and holds in its block, in that order: the `elementIndices` `recoveringDimensions()` gives for it |
+| `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from, in the order its block holds them: the `elementIndices` `recoveringDimensions()` gives for it |
 | `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
 | `appliedScales` | the factor the top-level elements of each layer group were multiplied by ([Scale](#scale)) |
 
