@@ -44,9 +44,11 @@ swift run jww2dxf drawing.jww out.dxf
 swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
 
-Prints a one-line summary (version, entity counts, bbox) and writes the DXF. `--full-size` and
-`--recover-dimensions` set the [writer options](#scale) of the same names, and with the second the
-summary adds how many dimensions were recovered and how many values stayed unexplained.
+Prints a one-line summary (version, entity counts, what was skipped, bbox) and writes the DXF. The
+skipped solid fills are `Drawing.skippedSolidCount`: those at the top level and those in block
+definitions, each counted once. `--full-size` and `--recover-dimensions` set the
+[writer options](#scale) of the same names, and with the second the summary adds how many
+dimensions were recovered and how many values stayed unexplained.
 
 ---
 
@@ -99,9 +101,18 @@ struct Element {                     // Drawing.elements, BlockDef.elements
 }
 ```
 
-`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) for
-verification against reference tools; `Drawing.bounds` gives the drawing extent. `Drawing.entities`
-is the geometry of `Drawing.elements` without the attributes, kept for source compatibility.
+`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) of the
+top-level objects for verification against reference tools; `Drawing.bounds` gives the drawing
+extent. `Drawing.entities` is the geometry of `Drawing.elements` without the attributes, kept for
+source compatibility.
+
+The reader skips solid fills (`CDataSolid`) without reading their shape, so a count is all that is
+left of them. `counts.solid` counts the top-level ones. A solid fill inside a block definition is
+counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again,
+including an insert inside another block. `Drawing.skippedSolidCount` is the number the file
+stores: the top-level fills plus each block definition's, counted once. `BlockExpansion.solidCount`
+is the total the expanded drawing holds: the top-level fills, plus each expanded insert's block
+count.
 
 `text.angleRad` is in radians. The file stores the angle in degrees; earlier releases passed the stored
 number through unconverted, so a text turned 90 degrees read as 90 radians.
@@ -142,7 +153,9 @@ the stated value within one unit of its last decimal place, picks the pair neare
 the lines that end on the points. An exact duplicate of a text is folded into the dimension it repeats.
 It is an inference, so `DimensionRecovery.unmatchedValues` lists every value text it could not explain:
 radius, diameter and angle values, values in another unit, and values that differ from the drawn
-distance. A recovered dimension has no reference points, so its `measuredPoints` are its arrow points.
+distance. A duplicate of such a text is listed too, so each value text is either among the
+`elementIndices` of one recovered dimension or in `unmatchedValues`, and never in both. A recovered
+dimension has no reference points, so its `measuredPoints` are its arrow points.
 
 ### Blocks
 
@@ -156,8 +169,9 @@ mirrored block never leaves it upside down (the turn it takes stays within a qua
 Each expanded `Element.references` lists the inserts it came from, outermost first, each with its
 definition number, name, position in its container, placement and attributes. A member keeps its own
 layer, line type and colour. `BlockExpansion.unresolved` holds inserts left out because the definition
-is missing or the block contains itself. Which layer Jw_cad draws a block member on is not checked
-against a real file, because none of the available drawings contains a block.
+is missing or the block contains itself, and `BlockExpansion.solidCount` the number of solid fills the
+expanded drawing holds ([see Model](#model)). Which layer Jw_cad draws a block member on is not checked
+against a real file, because none of the drawings that have a DXF export beside them contains a block.
 
 ---
 
@@ -176,6 +190,10 @@ against a real file, because none of the available drawings contains a block.
 | dimension record | `DIMENSION` (rotated linear), with its parts in an anonymous `*D<n>` block |
 | dimension record from a file older than 4.20 | decomposed into `LINE` / `TEXT` / `POINT` parts |
 
+A DXF `ARC` or `ELLIPSE` runs counter-clockwise from its start to its end, so a circular or
+elliptical arc with a negative sweep is written from its far end. The DXF then covers the same part
+of the curve as the JWW.
+
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values.
 
@@ -187,6 +205,9 @@ longer share layers. A `TABLES` section holds a `LTYPE` table with `CONTINUOUS` 
 layer `0` and every layer the entities use. A layer that has a JWW name carries it as its
 description, in the `AcAecLayerStandard` extended data AutoCAD keeps layer descriptions in (so
 `0-E` is described as 寸法, "dimensions").
+
+`DXFWriter.layerName(group:layer:)` gives the name the writer uses for a JWW layer, so a consumer can
+name the layer of a JWW element the way the DXF does.
 
 Every entity, `BLOCK`, `ENDBLK` and table record has a handle (group 5), in hexadecimal and unique in
 the file. The handles follow the order of writing, so the same drawing and options give the same
@@ -232,11 +253,22 @@ piece that two chained dimensions share is in both blocks.
 If the witness line ends would not measure the arrow distance along the dimension line, which a
 slanted witness line causes, both sides take the arrow points.
 
-`DXFWriter.output(_:options:)` returns the text with a `Report`. `Report.recoveredDimensions`
-lists the handles of the `DIMENSION`s that were rebuilt from loose pieces rather than read from a
-stored record, so a consumer can mark them as inferred. `Report.unexplainedValues` lists the
-indices into `Drawing.elements` of the dimension value texts no dimension explains. The report is
-empty without the option, and `DXFWriter.write(_:to:options:)` returns it.
+`DXFWriter.output(_:options:)` returns the text with a `Report`, and `DXFWriter.write(_:to:options:)`
+returns the report too:
+
+| Field | Value |
+|---|---|
+| `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
+| `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from, in the order its block holds them: the `elementIndices` `recoveringDimensions()` gives for it |
+| `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
+| `appliedScales` | the factor the top-level elements of each layer group were multiplied by ([Scale](#scale)) |
+
+The three dimension fields are empty without the option. Once the DXF is parsed, a dimension's
+handle links it to its pieces in the JWW: the value text, the arrow points, the dimension line and
+the extension lines, with each one's text, position and layer. A piece that two chained dimensions
+share is listed for both, and a dimension's value text stored twice at the same place is listed
+with its copy. A JWW element's position is in drawn coordinates: times `appliedScales` for its
+layer group, it is where the DXF draws the piece.
 
 On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
 
@@ -259,10 +291,17 @@ drawing with no layer groups, or a group with no usable scale, is written as dra
 
 Block members are written as drawn, in the block's own coordinates, and the insert carries the
 scale of its own layer group. A member in a layer group of a different scale does not use it.
-No available drawing contains a block, so this is not checked against a real file.
+No drawing that has a DXF export beside it contains a block, so this is not checked against a real
+file.
 
 With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
 times the layer group scale is the stated value.
+
+`Report.appliedScales` gives the factor the writer multiplied the top-level elements of each layer
+group by, keyed by group number, for every layer group that holds a top-level element: the group's
+scale with full size when that scale is finite and positive, and 1 otherwise. A block member is
+written as drawn and takes the factor of the insert that places it, whatever its own group, so a
+group only block members use is not listed.
 
 ---
 

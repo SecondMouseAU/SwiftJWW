@@ -4,17 +4,21 @@ extension JWW {
     /// A dimension recovered from loose entities, with the elements it was built from.
     public struct RecoveredDimension: Sendable {
         public var dimension: Dimension
-        /// Indices into ``Drawing/elements`` of the value text, the two arrow points, the dimension
-        /// line pieces and the extension lines the dimension was built from, in ascending order.
+        /// Indices into ``Drawing/elements`` of the value text and any copy of it stored at the same
+        /// place, the two arrow points, the dimension line pieces and the extension lines the
+        /// dimension was built from, in ascending order.
         public var elementIndices: [Int]
     }
 
     /// The outcome of ``Drawing/recoveringDimensions()``.
     public struct DimensionRecovery: Sendable {
         public var dimensions: [RecoveredDimension]
-        /// Indices into ``Drawing/elements`` of dimension value texts no measured pair explained:
-        /// radius, diameter and angle values, values in another unit, and any text with no pair of
-        /// arrow points at the stated distance.
+        /// Indices into ``Drawing/elements`` of dimension value texts no measured pair explained.
+        ///
+        /// They are radius, diameter and angle values, values in another unit, and any text with no
+        /// pair of arrow points at the stated distance. A copy of such a text stored at the same
+        /// place is listed too, so every dimension value text is in exactly one of this list and
+        /// the ``RecoveredDimension/elementIndices`` of a dimension.
         public var unmatchedValues: [Int]
     }
 }
@@ -135,7 +139,9 @@ extension JWW.Drawing {
                     tolerance: tolerance))
         }
         for (ti, text) in texts.enumerated() where !matchedTexts.contains(ti) {
+            // Copies of the text at the same place are no better explained than it is.
             unmatched.append(text.index)
+            unmatched.append(contentsOf: text.duplicates)
         }
         recovered.sort { $0.elementIndices[0] < $1.elementIndices[0] }
         return JWW.DimensionRecovery(dimensions: recovered, unmatchedValues: unmatched.sorted())
