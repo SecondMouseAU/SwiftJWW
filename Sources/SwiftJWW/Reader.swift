@@ -345,17 +345,21 @@ extension JWW {
                 let nameRaw = try jwString()
                 let memberCount = try readCount()  // CObList of member entities
                 var members: [JWW.Element] = []
+                var solids = 0
                 var n = 0
                 while n < memberCount {
                     n += 1
-                    if case .element(let element) = try readObject(&classMap, &mapIndex) {
-                        members.append(element)
+                    switch try readObject(&classMap, &mapIndex) {
+                    case .element(let element): members.append(element)
+                    case .solid: solids += 1
+                    case .blockDef, .skip: break
                     }
                 }
                 let name =
                     String(decoding: nameRaw, as: UTF8.self).components(separatedBy: "@@").first
                     ?? ""
-                return .blockDef(JWW.BlockDef(number: num, name: name, elements: members))
+                return .blockDef(
+                    JWW.BlockDef(number: num, name: name, elements: members, solidCount: solids))
             case "CDataSunpou":
                 return .element(try readSunpou())
             default:

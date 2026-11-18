@@ -99,9 +99,14 @@ struct Element {                     // Drawing.elements, BlockDef.elements
 }
 ```
 
-`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) for
-verification against reference tools; `Drawing.bounds` gives the drawing extent. `Drawing.entities`
-is the geometry of `Drawing.elements` without the attributes, kept for source compatibility.
+`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) of the
+top-level objects for verification against reference tools; `Drawing.bounds` gives the drawing
+extent. `Drawing.entities` is the geometry of `Drawing.elements` without the attributes, kept for
+source compatibility.
+
+The reader skips solid fills (`CDataSolid`) without reading their shape, so a count is all that is
+left of them. `counts.solid` counts the top-level ones. A solid fill inside a block definition is
+counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again.
 
 `text.angleRad` is in radians. The file stores the angle in degrees; earlier releases passed the stored
 number through unconverted, so a text turned 90 degrees read as 90 radians.
@@ -175,6 +180,10 @@ against a real file, because none of the available drawings contains a block.
 | block insert | `INSERT` (refers to `BLK<number>`) |
 | dimension record | `DIMENSION` (rotated linear), with its parts in an anonymous `*D<n>` block |
 | dimension record from a file older than 4.20 | decomposed into `LINE` / `TEXT` / `POINT` parts |
+
+A DXF `ARC` or `ELLIPSE` runs counter-clockwise from its start to its end, so a circular or
+elliptical arc with a negative sweep is written from its far end. The DXF then covers the same part
+of the curve as the JWW.
 
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values.

@@ -59,17 +59,26 @@ public enum JWW {
         public var entities: [Entity]
         /// The members with their attributes, in file order.
         public var elements: [Element]
+        /// The number of solid fills among the members, which the reader skips, as at the top level.
+        ///
+        /// Each insert places them again. ``Drawing/counts`` counts only the top-level fills.
+        public var solidCount: Int
 
-        init(number: Int, name: String, entities: [Entity], elements: [Element]? = nil) {
+        init(
+            number: Int, name: String, entities: [Entity], elements: [Element]? = nil,
+            solidCount: Int = 0
+        ) {
             self.number = number
             self.name = name
             self.entities = entities
             self.elements = elements ?? entities.map { Element(entity: $0) }
+            self.solidCount = solidCount
         }
 
-        init(number: Int, name: String, elements: [Element]) {
+        init(number: Int, name: String, elements: [Element], solidCount: Int = 0) {
             self.init(
-                number: number, name: name, entities: elements.map(\.entity), elements: elements)
+                number: number, name: name, entities: elements.map(\.entity), elements: elements,
+                solidCount: solidCount)
         }
     }
 
@@ -81,7 +90,9 @@ public enum JWW {
         public var elements: [Element]
         /// Block definitions keyed by number, referenced by `.insert` entities.
         public var blocks: [Int: BlockDef] = [:]
-        /// Counts by JWW class, for verification against reference tools.
+        /// Counts of the top-level objects by JWW class, for verification against reference tools.
+        ///
+        /// Block members are not counted; a block's solid fills are in ``BlockDef/solidCount``.
         public var counts: Counts
         /// The 16 layer groups with their scales and names, empty for a drawing not read from a file.
         public var layerGroups: [LayerGroup] = []
