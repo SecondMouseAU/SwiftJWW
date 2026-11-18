@@ -6,8 +6,6 @@ struct DXFEmitter {
     let options: DXFWriter.Options
     /// The anonymous blocks of the dimensions written so far, as DXF text.
     var anonymousBlocks: [String] = []
-    /// The handles of the `DIMENSION`s rebuilt from loose pieces, in the order written.
-    var recoveredHandles: [String] = []
     /// The layers written so far, by name, each with the JWW layer name it stands for.
     var layers: [String: String] = [:]
     private var nextHandle = 1

@@ -51,17 +51,18 @@ extension DXFEmitter {
 
     /// Writes a dimension rebuilt from loose pieces as a `DIMENSION`, with the pieces in its block.
     ///
-    /// The pieces are the elements the recovery used, written at the scale of the dimension's layer
-    /// group, and the handle of the `DIMENSION` is kept in ``recoveredHandles``.
+    /// The pieces are the elements the recovery used, in the order of their indices, written at
+    /// the scale of the dimension's layer group.
+    ///
+    /// - Returns: The handle of the `DIMENSION`.
     mutating func emitRecovered(
         _ recovered: JWW.RecoveredDimension, as dimension: DXFDimension, into s: inout String
-    ) {
+    ) -> String {
         let attributes = recovered.dimension.attributes
         let scale = scale(ofGroup: attributes.layerGroup)
         let members = recovered.elementIndices.map { drawing.elements[$0].entity.scaled(by: scale) }
-        recoveredHandles.append(
-            emitDimension(
-                dimension.scaled(by: scale), members: members, group: attributes.layerGroup,
-                layer: attributes.layer, color: attributes.color, into: &s))
+        return emitDimension(
+            dimension.scaled(by: scale), members: members, group: attributes.layerGroup,
+            layer: attributes.layer, color: attributes.color, into: &s)
     }
 }

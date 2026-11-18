@@ -50,13 +50,13 @@ struct DXFWriterRecoveryTests {
         #expect(members.allSatisfy { $0.layer == "0-E" })
     }
 
-    @Test("without the option the pieces are written as they were, and the report is empty")
+    @Test("without the option the pieces are written as they were, and no dimension is reported")
     func offByDefault() throws {
         let output = DXFWriter.output(dimensions.drawing(sample))
         let dxf = try ReferenceDXF(text: output.text)
         #expect(dxf.entities.map(\.type) == ["LINE", "LINE", "LINE", "POINT", "POINT", "TEXT"])
         #expect(dxf.blockRecords.isEmpty)
-        #expect(output.report == DXFWriter.Report())
+        #expect(output.report == DXFWriter.Report(appliedScales: [0: 1]))
     }
 
     @Test("the report lists the DIMENSION handles it recovered")

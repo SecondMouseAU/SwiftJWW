@@ -188,6 +188,9 @@ layer `0` and every layer the entities use. A layer that has a JWW name carries 
 description, in the `AcAecLayerStandard` extended data AutoCAD keeps layer descriptions in (so
 `0-E` is described as 寸法, "dimensions").
 
+`DXFWriter.layerName(group:layer:)` gives the name the writer uses for a JWW layer, so a consumer can
+name the layer of a JWW element the way the DXF does.
+
 Every entity, `BLOCK`, `ENDBLK` and table record has a handle (group 5), in hexadecimal and unique in
 the file. The handles follow the order of writing, so the same drawing and options give the same
 handles.
@@ -232,11 +235,20 @@ piece that two chained dimensions share is in both blocks.
 If the witness line ends would not measure the arrow distance along the dimension line, which a
 slanted witness line causes, both sides take the arrow points.
 
-`DXFWriter.output(_:options:)` returns the text with a `Report`. `Report.recoveredDimensions`
-lists the handles of the `DIMENSION`s that were rebuilt from loose pieces rather than read from a
-stored record, so a consumer can mark them as inferred. `Report.unexplainedValues` lists the
-indices into `Drawing.elements` of the dimension value texts no dimension explains. The report is
-empty without the option, and `DXFWriter.write(_:to:options:)` returns it.
+`DXFWriter.output(_:options:)` returns the text with a `Report`, and `DXFWriter.write(_:to:options:)`
+returns the report too:
+
+| Field | Value |
+|---|---|
+| `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
+| `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from and holds in its block, in that order: the `elementIndices` `recoveringDimensions()` gives for it |
+| `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
+| `appliedScales` | the factor each layer group's coordinates were multiplied by ([Scale](#scale)) |
+
+The three dimension fields are empty without the option. Once the DXF is parsed, a dimension's
+handle links it to its pieces in the JWW: the value text, the arrow points, the dimension line and
+the extension lines, with each one's text, position and layer. A piece that two chained dimensions
+share is listed for both, and a value text stored twice at the same place is listed with its copy.
 
 On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
 
@@ -263,6 +275,11 @@ No available drawing contains a block, so this is not checked against a real fil
 
 With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
 times the layer group scale is the stated value.
+
+`Report.appliedScales` gives the factor the writer multiplied each layer group by, keyed by group
+number, for every layer group that holds a top-level element: the group's scale with full size when
+that scale is finite and positive, and 1 otherwise. A group only block members use is not listed,
+since the insert carries the scale.
 
 ---
 

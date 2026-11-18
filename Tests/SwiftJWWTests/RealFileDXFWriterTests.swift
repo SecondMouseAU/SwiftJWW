@@ -54,6 +54,37 @@ struct RealFileDXFWriterTests {
             #expect(output.report.recoveredDimensions.count == want.recovered, "\(name)")
             #expect(output.report.unexplainedValues.count == want.unexplained, "\(name)")
         }
+
+        let lists = output.report.recoveredDimensions.map {
+            output.report.recoveredDimensionElements[$0] ?? []
+        }
+        #expect(lists == dwg.recoveringDimensions().dimensions.map(\.elementIndices), "\(name)")
+        let groups = Set(dwg.elements.map(\.attributes.layerGroup))
+        #expect(Set(output.report.appliedScales.keys) == groups, "\(name)")
+        for group in groups {
+            #expect(output.report.appliedScales[group] == dwg.scale(ofLayerGroup: group), "\(name)")
+        }
+    }
+
+    @Test(
+        "the 2120's 29 rebuilt dimensions name their pieces, which are the 125 elements on 0-E",
+        .enabled(if: Fixtures.drawings.contains { $0.lastPathComponent == "2120.jww" }))
+    func piecesOf2120() throws {
+        let url = try #require(Fixtures.drawings.first { $0.lastPathComponent == "2120.jww" })
+        let dwg = try JWW.read(contentsOf: url)
+        let report = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
+            .report
+        #expect(report.recoveredDimensions.count == 29)
+        #expect(Set(report.recoveredDimensionElements.keys) == Set(report.recoveredDimensions))
+        let lists = report.recoveredDimensions.map { report.recoveredDimensionElements[$0] ?? [] }
+        #expect(lists == dwg.recoveringDimensions().dimensions.map(\.elementIndices))
+        let onLayer = dwg.elements.indices.filter {
+            let attributes = dwg.elements[$0].attributes
+            return DXFWriter.layerName(group: attributes.layerGroup, layer: attributes.layer)
+                == "0-E"
+        }
+        #expect(onLayer.count == 125)
+        #expect(Set(lists.joined()) == Set(onLayer))
     }
 
     @Test(
