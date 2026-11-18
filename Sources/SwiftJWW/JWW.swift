@@ -61,7 +61,8 @@ public enum JWW {
         public var elements: [Element]
         /// The number of solid fills among the members, which the reader skips, as at the top level.
         ///
-        /// Each insert places them again. ``Drawing/counts`` counts only the top-level fills.
+        /// Each insert of this block places them again, including an insert inside another block;
+        /// ``BlockExpansion/solidCount`` adds them up for the whole drawing.
         public var solidCount: Int
 
         init(

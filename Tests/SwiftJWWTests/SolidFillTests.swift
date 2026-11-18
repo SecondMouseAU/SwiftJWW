@@ -49,4 +49,26 @@ struct SolidFillTests {
         #expect(dwg.counts.solid == 1)
         #expect(dwg.counts.block == 1)
     }
+
+    @Test("block expansion counts the solid fills each insert places, through nested blocks")
+    func expanded() {
+        func insert(_ def: Int) -> JWW.Element {
+            JWW.Element(
+                entity: .insert(
+                    def: def, at: .init(x: 0, y: 0), scaleX: 1, scaleY: 1, rotationRad: 0,
+                    layer: 0, color: 1))
+        }
+        // Block 1 holds no fill but inserts block 2, which holds one. Two inserts of block 1 and
+        // one top-level fill make three.
+        let blocks = [
+            1: JWW.BlockDef(number: 1, name: "outer", elements: [insert(2)]),
+            2: JWW.BlockDef(number: 2, name: "inner", elements: [], solidCount: 1),
+        ]
+        var counts = JWW.Drawing.Counts()
+        counts.solid = 1
+        let dwg = JWW.Drawing(
+            version: 700, elements: [insert(1), insert(1)], blocks: blocks, counts: counts,
+            layerGroups: [])
+        #expect(dwg.expandingBlocks().solidCount == 3)
+    }
 }

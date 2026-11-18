@@ -127,14 +127,11 @@ struct DXFEmitter {
                     p(20, num(c.y))
                     p(30, "0.0")
                     p(40, num(r))
-                    // JWW start/sweep are measured from the tilt axis; DXF wants absolute CCW angles in
-                    // [0,360). Add tilt, and order start→end CCW (so a negative sweep isn't drawn inverted).
-                    let a0 = tilt + start
-                    let a1 = tilt + start + sweep
-                    let lo = sweep >= 0 ? a0 : a1
-                    let hi = sweep >= 0 ? a1 : a0
-                    p(50, num(normDeg(lo * deg)))
-                    p(51, num(normDeg(hi * deg)))
+                    // JWW angles are measured from the tilt axis, DXF angles from the x axis in
+                    // degrees, in [0, 360).
+                    let ends = Self.counterClockwiseEnds(start: tilt + start, sweep: sweep)
+                    p(50, num(normDeg(ends.start * deg)))
+                    p(51, num(normDeg(ends.end * deg)))
                 }
             } else {  // ellipse / elliptical arc
                 head("ELLIPSE", layer, color)
@@ -145,10 +142,10 @@ struct DXFEmitter {
                 p(21, num(sin(tilt) * r))
                 p(31, "0.0")  // major axis endpoint, rel. to center
                 p(40, num(ratio))
-                // An ELLIPSE runs counter-clockwise from group 41 to group 42, so a negative sweep
-                // is written from its far end, as an ARC is.
-                p(41, num(full ? 0 : min(start, start + sweep)))
-                p(42, num(full ? 2 * .pi : max(start, start + sweep)))
+                // The parameters are measured from the major axis, in radians, as JWW's are.
+                let ends = Self.counterClockwiseEnds(start: start, sweep: sweep)
+                p(41, num(full ? 0 : ends.start))
+                p(42, num(full ? 2 * .pi : ends.end))
             }
 
         case .point(let at, let layer, let color):
@@ -181,6 +178,14 @@ struct DXFEmitter {
             // Decomposed: dimension line, text, witness lines, arrows.
             for part in parts { emit(part, group: group, into: &s) }
         }
+    }
+
+    /// The ends of an arc from `start` through `sweep`, in the counter-clockwise order of a DXF
+    /// `ARC` or `ELLIPSE`, so that a negative sweep starts at its far end.
+    private static func counterClockwiseEnds(
+        start: Double, sweep: Double
+    ) -> (start: Double, end: Double) {
+        sweep >= 0 ? (start, start + sweep) : (start + sweep, start)
     }
 }
 

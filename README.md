@@ -90,9 +90,9 @@ point, scale and rotation applied and nested blocks followed. Each member lists 
 from in `element.references`; inserts of an undefined block, or of a block that contains itself, are
 returned in `unresolved`.
 
-**Solid fills** are skipped, not read. `dwg.counts.solid` counts the top-level ones, and
-`BlockDef.solidCount` counts those inside each block definition, which every insert of the block
-places again.
+**Solid fills** are skipped, not read. `dwg.counts.solid` counts the top-level ones and
+`BlockDef.solidCount` those inside each block definition. `expandingBlocks().solidCount` adds them
+up as the inserts place them, nested blocks included.
 
 ## Scope & notes
 

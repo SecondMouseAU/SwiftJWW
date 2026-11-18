@@ -106,7 +106,9 @@ source compatibility.
 
 The reader skips solid fills (`CDataSolid`) without reading their shape, so a count is all that is
 left of them. `counts.solid` counts the top-level ones. A solid fill inside a block definition is
-counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again.
+counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again,
+including an insert inside another block. `BlockExpansion.solidCount` is the total the expanded
+drawing holds: the top-level fills, plus each expanded insert's block count.
 
 `text.angleRad` is in radians. The file stores the angle in degrees; earlier releases passed the stored
 number through unconverted, so a text turned 90 degrees read as 90 radians.
@@ -161,7 +163,8 @@ mirrored block never leaves it upside down (the turn it takes stays within a qua
 Each expanded `Element.references` lists the inserts it came from, outermost first, each with its
 definition number, name, position in its container, placement and attributes. A member keeps its own
 layer, line type and colour. `BlockExpansion.unresolved` holds inserts left out because the definition
-is missing or the block contains itself. Which layer Jw_cad draws a block member on is not checked
+is missing or the block contains itself, and `BlockExpansion.solidCount` the number of solid fills the
+expanded drawing holds ([see Model](#model)). Which layer Jw_cad draws a block member on is not checked
 against a real file, because none of the available drawings contains a block.
 
 ---

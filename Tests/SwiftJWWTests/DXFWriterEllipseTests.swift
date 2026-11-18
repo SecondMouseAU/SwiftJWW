@@ -32,27 +32,20 @@ struct DXFWriterEllipseTests {
         ArcGeometry.point(center: center, radius: radius, tilt: tilt, ratio: ratio, at: t)
     }
 
-    /// True when a DXF reader draws `q` as part of the `ELLIPSE`: on the curve, and inside the
-    /// counter-clockwise run from group 41 to group 42.
+    /// True when a DXF reader draws `q` as part of the `ELLIPSE`, which runs counter-clockwise from
+    /// group 41 to group 42.
     func covers(_ d: ReferenceDXF.Entity, _ q: Point) throws -> Bool {
-        let cx = try #require(d.number(10))
-        let cy = try #require(d.number(20))
         let mx = try #require(d.number(11))
         let my = try #require(d.number(21))
-        let r = try #require(d.number(40))
         let start = try #require(d.number(41))
-        let end = try #require(d.number(42))
-        let major = hypot(mx, my)
-        let ux = mx / major
-        let uy = my / major
-        let x = ((q.x - cx) * ux + (q.y - cy) * uy) / major
-        let y = (-(q.x - cx) * uy + (q.y - cy) * ux) / (major * r)
-        guard abs(hypot(x, y) - 1) < 1e-6 else { return false }
-        func ccw(_ a: Double) -> Double {
-            let m = a.truncatingRemainder(dividingBy: 2 * .pi)
-            return m < 0 ? m + 2 * .pi : m
-        }
-        return ccw(atan2(y, x) - start) <= ccw(end - start) + 1e-9
+        var sweep = (try #require(d.number(42)) - start).truncatingRemainder(dividingBy: 2 * .pi)
+        if sweep <= 0 { sweep += 2 * .pi }
+        let drawn = JWW.Entity.arc(
+            center: Point(x: try #require(d.number(10)), y: try #require(d.number(20))),
+            radius: hypot(mx, my), start: start, sweep: sweep, tilt: atan2(my, mx),
+            ratio: try #require(d.number(40)), full: false, layer: 0, color: 1)
+        // The DXF keeps six decimal places.
+        return ArcGeometry.contains(drawn, q, tolerance: 1e-4)
     }
 
     @Test("a negative sweep is written as the part of the ellipse the JWW arc covers")
@@ -75,5 +68,13 @@ struct DXFWriterEllipseTests {
         let forward = try written(ellipse(start: degrees(40), sweep: degrees(60)))
         #expect(backward.text(41) == forward.text(41))
         #expect(backward.text(42) == forward.text(42))
+    }
+
+    @Test("a negative sweep across the major axis covers the same part of the ellipse")
+    func acrossMajorAxis() throws {
+        // From 20 degrees back to -40: 0 is on the arc, 90 is not.
+        let d = try written(ellipse(start: degrees(20), sweep: degrees(-60)))
+        #expect(try covers(d, point(at: 0)))
+        #expect(try !covers(d, point(at: degrees(90))))
     }
 }
