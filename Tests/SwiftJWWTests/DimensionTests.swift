@@ -173,6 +173,53 @@ struct DimensionTests {
         #expect(try #require(result.dimensions.first).elementIndices == [0, 1, 2, 3])
     }
 
+    /// How many times each value text of `dwg` is in a recovered dimension or in the unexplained
+    /// values, which is once for each text when nothing drops out and nothing is counted twice.
+    func placements(_ dwg: JWW.Drawing, _ result: JWW.DimensionRecovery) -> [Int: Int] {
+        var count: [Int: Int] = [:]
+        for found in result.dimensions {
+            for i in found.elementIndices { count[i, default: 0] += 1 }
+        }
+        for i in result.unmatchedValues { count[i, default: 0] += 1 }
+        var texts: [Int: Int] = [:]
+        for (i, element) in dwg.elements.enumerated() {
+            if case .text = element.entity, element.attributes.flags & 0x4010 == 0x4010 {
+                texts[i] = count[i] ?? 0
+            }
+        }
+        return texts
+    }
+
+    @Test("a duplicate of an unexplained value text is listed as unexplained too")
+    func duplicateOfUnexplained() {
+        // 999 has no pair of arrow points at that distance, and is stored twice at one place.
+        let dwg = drawing([
+            arrow(0, 0), arrow(10, 0), valueText("800", 4, 1), valueText("999", 4, 3),
+            valueText("999", 4, 3),
+        ])
+        let result = dwg.recoveringDimensions()
+        #expect(result.dimensions.count == 1)
+        #expect(result.dimensions.first?.elementIndices == [0, 1, 2])
+        #expect(result.unmatchedValues == [3, 4])
+        #expect(placements(dwg, result).values.allSatisfy { $0 == 1 })
+    }
+
+    @Test("every value text is in exactly one place, whatever copies of it there are")
+    func everyValueTextInOnePlace() {
+        let dwg = drawing([
+            arrow(0, 0), arrow(10, 0),
+            valueText("800", 4, 1), valueText("800", 4, 1),  // explained, twice
+            valueText("999", 4, 3), valueText("999", 4, 3), valueText("999", 4, 3),  // three times
+            valueText("R5", 4, 5, flags: 0x4110), valueText("R5", 4, 5, flags: 0x4110),
+            valueText("999", 9, 3),  // the same text somewhere else is not a copy
+        ])
+        let result = dwg.recoveringDimensions()
+        #expect(result.unmatchedValues == [4, 5, 6, 7, 8, 9])
+        let counts = placements(dwg, result)
+        #expect(counts.count == 8)
+        #expect(counts.values.allSatisfy { $0 == 1 })
+    }
+
     @Test("radius, diameter and angle values and unexplained values are listed, not guessed")
     func unmatched() {
         let dwg = drawing([

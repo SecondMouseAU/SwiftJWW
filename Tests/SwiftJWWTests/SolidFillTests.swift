@@ -58,6 +58,17 @@ struct SolidFillTests {
         #expect(dwg.counts.block == 1)
     }
 
+    @Test("the skipped solid fills, as jww2dxf reports them, count each block definition's once")
+    func skipped() throws {
+        let dwg = try JWW.read(data: sample())
+        #expect(dwg.skippedSolidCount == 3)
+        // Two inserts of block 7 place its fills twice but store them once.
+        var twice = dwg
+        twice.elements.append(insert(7))
+        #expect(twice.skippedSolidCount == 3)
+        #expect(twice.expandingBlocks().solidCount == 5)
+    }
+
     @Test("block expansion counts the solid fills each insert places, through nested blocks")
     func expanded() {
         // Block 1 holds no fill but inserts block 2, which holds one. Two inserts of block 1 and

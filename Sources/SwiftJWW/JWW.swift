@@ -126,6 +126,12 @@ public enum JWW {
             layerGroups.indices.contains(group) ? layerGroups[group].scale : nil
         }
 
+        /// The number of solid fills the reader skipped: the top-level ones and those in each block
+        /// definition, each counted once however often its block is inserted.
+        public var skippedSolidCount: Int {
+            counts.solid + blocks.values.reduce(0) { $0 + $1.solidCount }
+        }
+
         public struct Counts: Sendable, Equatable {
             public var line = 0, arc = 0, point = 0, text = 0, solid = 0, block = 0, dim = 0
         }

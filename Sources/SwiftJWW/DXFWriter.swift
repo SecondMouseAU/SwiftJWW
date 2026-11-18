@@ -32,17 +32,34 @@ public enum DXFWriter {
         }
     }
 
-    /// What the writer inferred, which the DXF text alone does not say.
+    /// What the DXF text alone does not say: the dimensions the writer inferred and the scales it
+    /// applied.
     public struct Report: Equatable, Sendable {
         /// The handles (group 5) of the `DIMENSION`s rebuilt from loose pieces, not read from a
         /// stored record.
         public var recoveredDimensions: [String]
         /// Indices into ``JWW/Drawing/elements`` of the dimension value texts no dimension explains.
         public var unexplainedValues: [Int]
+        /// For each handle in ``recoveredDimensions``, the indices into ``JWW/Drawing/elements`` of
+        /// the pieces the `DIMENSION` was built from and holds in its block.
+        ///
+        /// Each list is the ``JWW/RecoveredDimension/elementIndices`` of that dimension.
+        public var recoveredDimensionElements: [String: [Int]]
+        /// The factor the top-level elements of each layer group were multiplied by, keyed by group.
+        ///
+        /// Every layer group of a top-level element is listed. The factor is the group's scale with
+        /// ``Options/fullSize`` when that scale is finite and positive, and 1 otherwise. A block
+        /// member is written as drawn and takes the factor of the insert that places it.
+        public var appliedScales: [Int: Double]
 
-        public init(recoveredDimensions: [String] = [], unexplainedValues: [Int] = []) {
+        public init(
+            recoveredDimensions: [String] = [], unexplainedValues: [Int] = [],
+            recoveredDimensionElements: [String: [Int]] = [:], appliedScales: [Int: Double] = [:]
+        ) {
             self.recoveredDimensions = recoveredDimensions
             self.unexplainedValues = unexplainedValues
+            self.recoveredDimensionElements = recoveredDimensionElements
+            self.appliedScales = appliedScales
         }
     }
 
@@ -56,7 +73,7 @@ public enum DXFWriter {
         output(dwg, options: options).text
     }
 
-    /// Writes the DXF to `url` and returns what the writer inferred.
+    /// Writes the DXF to `url` and returns its ``Report``.
     @discardableResult
     public static func write(
         _ dwg: JWW.Drawing, to url: URL, options: Options = Options()
@@ -66,9 +83,10 @@ public enum DXFWriter {
         return result.report
     }
 
-    /// The DXF text and a report of the dimensions it recovered and the values it could not explain.
+    /// The DXF text and a report of the dimensions it recovered, the values it could not explain and
+    /// the scale it applied to each layer group.
     ///
-    /// The report is empty unless ``Options/recoversDimensions`` is set.
+    /// The dimension fields of the report are empty unless ``Options/recoversDimensions`` is set.
     public static func output(_ dwg: JWW.Drawing, options: Options = Options()) -> Output {
         var emitter = DXFEmitter(drawing: dwg, options: options)
         var blocks = ""
@@ -76,9 +94,13 @@ public enum DXFWriter {
             if let def = dwg.blocks[num] { emitter.emitBlock(def, into: &blocks) }
         }
 
+        var report = Report()
+        for group in Set(dwg.elements.map(\.attributes.layerGroup)) {
+            report.appliedScales[group] = emitter.scale(ofGroup: group)
+        }
+
         // A recovered dimension is written where its first piece was, and its pieces are not
         // written again as loose entities.
-        var report = Report()
         var starting: [Int: [(JWW.RecoveredDimension, DXFDimension)]] = [:]
         var consumed = Set<Int>()
         if options.recoversDimensions {
@@ -97,12 +119,13 @@ public enum DXFWriter {
         entities.reserveCapacity(dwg.elements.count * 120)
         for (index, element) in dwg.elements.enumerated() {
             for (found, dimension) in starting[index] ?? [] {
-                emitter.emitRecovered(found, as: dimension, into: &entities)
+                let handle = emitter.emitRecovered(found, as: dimension, into: &entities)
+                report.recoveredDimensions.append(handle)
+                report.recoveredDimensionElements[handle] = found.elementIndices
             }
             if consumed.contains(index) { continue }
             emitter.emit(element, scale: emitter.scale(of: element), into: &entities)
         }
-        report.recoveredDimensions = emitter.recoveredHandles
 
         var s = "999\nSwiftJWW\n"
         s += emitter.tables()
@@ -114,8 +137,8 @@ public enum DXFWriter {
         return Output(text: s, report: report)
     }
 
-    /// The name of a DXF layer: the layer group and layer in hexadecimal, such as `0-E`.
-    static func layerName(group: Int, layer: Int) -> String {
+    /// The name the writer gives a JWW layer: the layer group and layer in hexadecimal, such as `0-E`.
+    public static func layerName(group: Int, layer: Int) -> String {
         "\(String(group, radix: 16, uppercase: true))-\(String(layer, radix: 16, uppercase: true))"
     }
 

@@ -54,6 +54,38 @@ struct RealFileDXFWriterTests {
             #expect(output.report.recoveredDimensions.count == want.recovered, "\(name)")
             #expect(output.report.unexplainedValues.count == want.unexplained, "\(name)")
         }
+
+        let lists = output.report.recoveredDimensions.map {
+            output.report.recoveredDimensionElements[$0] ?? []
+        }
+        #expect(lists == dwg.recoveringDimensions().dimensions.map(\.elementIndices), "\(name)")
+        let groups = Set(dwg.elements.map(\.attributes.layerGroup))
+        #expect(Set(output.report.appliedScales.keys) == groups, "\(name)")
+        for group in groups {
+            // The writer's rule: the stated scale when it is finite and positive, otherwise 1.
+            let stated = dwg.scale(ofLayerGroup: group) ?? 1
+            let factor = stated.isFinite && stated > 0 ? stated : 1
+            #expect(output.report.appliedScales[group] == factor, "\(name)")
+        }
+    }
+
+    @Test(
+        "the 2120's rebuilt dimensions name their pieces, which are the 125 elements on 0-E",
+        .enabled(if: Fixtures.drawings.contains { $0.lastPathComponent == "2120.jww" }))
+    func piecesOf2120() throws {
+        let url = try #require(Fixtures.drawings.first { $0.lastPathComponent == "2120.jww" })
+        let dwg = try JWW.read(contentsOf: url)
+        let report = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
+            .report
+        // The count and the match with recoveringDimensions() are checked in writesRecovered.
+        #expect(Set(report.recoveredDimensionElements.keys) == Set(report.recoveredDimensions))
+        let onLayer = dwg.elements.indices.filter {
+            let attributes = dwg.elements[$0].attributes
+            return DXFWriter.layerName(group: attributes.layerGroup, layer: attributes.layer)
+                == "0-E"
+        }
+        #expect(onLayer.count == 125)
+        #expect(Set(report.recoveredDimensionElements.values.joined()) == Set(onLayer))
     }
 
     @Test(
