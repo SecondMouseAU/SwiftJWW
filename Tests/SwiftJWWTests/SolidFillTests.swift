@@ -11,6 +11,14 @@ struct SolidFillTests {
         for v in [0.0, 0, 5, 0, 5, 5, 0, 5] { b.f64(v) }
     }
 
+    /// An insert of block `def` at the origin.
+    func insert(_ def: Int) -> JWW.Element {
+        JWW.Element(
+            entity: .insert(
+                def: def, at: .init(x: 0, y: 0), scaleX: 1, scaleY: 1, rotationRad: 0, layer: 0,
+                color: 1))
+    }
+
     /// A JWW with a top-level solid fill and an insert of block 7, whose members are a line and two
     /// solid fills.
     func sample() -> Data {
@@ -52,12 +60,6 @@ struct SolidFillTests {
 
     @Test("block expansion counts the solid fills each insert places, through nested blocks")
     func expanded() {
-        func insert(_ def: Int) -> JWW.Element {
-            JWW.Element(
-                entity: .insert(
-                    def: def, at: .init(x: 0, y: 0), scaleX: 1, scaleY: 1, rotationRad: 0,
-                    layer: 0, color: 1))
-        }
         // Block 1 holds no fill but inserts block 2, which holds one. Two inserts of block 1 and
         // one top-level fill make three.
         let blocks = [
@@ -70,5 +72,20 @@ struct SolidFillTests {
             version: 700, elements: [insert(1), insert(1)], blocks: blocks, counts: counts,
             layerGroups: [])
         #expect(dwg.expandingBlocks().solidCount == 3)
+    }
+
+    @Test("an insert left unresolved adds no solid fill")
+    func unresolved() {
+        // Block 3 holds a fill and inserts itself; block 9 is not defined. Only the one insert of
+        // block 3 that expands places its fill.
+        let blocks = [
+            3: JWW.BlockDef(number: 3, name: "loop", elements: [insert(3)], solidCount: 1)
+        ]
+        let dwg = JWW.Drawing(
+            version: 700, elements: [insert(3), insert(9)], blocks: blocks, counts: .init(),
+            layerGroups: [])
+        let expansion = dwg.expandingBlocks()
+        #expect(expansion.unresolved.map(\.definition) == [3, 9])
+        #expect(expansion.solidCount == 1)
     }
 }

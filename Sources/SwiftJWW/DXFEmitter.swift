@@ -129,7 +129,7 @@ struct DXFEmitter {
                     p(40, num(r))
                     // JWW angles are measured from the tilt axis, DXF angles from the x axis in
                     // degrees, in [0, 360).
-                    let ends = Self.counterClockwiseEnds(start: tilt + start, sweep: sweep)
+                    let ends = JWW.Entity.counterClockwiseEnds(start: tilt + start, sweep: sweep)
                     p(50, num(normDeg(ends.start * deg)))
                     p(51, num(normDeg(ends.end * deg)))
                 }
@@ -143,7 +143,7 @@ struct DXFEmitter {
                 p(31, "0.0")  // major axis endpoint, rel. to center
                 p(40, num(ratio))
                 // The parameters are measured from the major axis, in radians, as JWW's are.
-                let ends = Self.counterClockwiseEnds(start: start, sweep: sweep)
+                let ends = JWW.Entity.counterClockwiseEnds(start: start, sweep: sweep)
                 p(41, num(full ? 0 : ends.start))
                 p(42, num(full ? 2 * .pi : ends.end))
             }
@@ -178,14 +178,6 @@ struct DXFEmitter {
             // Decomposed: dimension line, text, witness lines, arrows.
             for part in parts { emit(part, group: group, into: &s) }
         }
-    }
-
-    /// The ends of an arc from `start` through `sweep`, in the counter-clockwise order of a DXF
-    /// `ARC` or `ELLIPSE`, so that a negative sweep starts at its far end.
-    private static func counterClockwiseEnds(
-        start: Double, sweep: Double
-    ) -> (start: Double, end: Double) {
-        sweep >= 0 ? (start, start + sweep) : (start + sweep, start)
     }
 }
 

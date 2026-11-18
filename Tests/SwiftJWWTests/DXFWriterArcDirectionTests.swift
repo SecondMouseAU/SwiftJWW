@@ -3,8 +3,8 @@ import Testing
 
 @testable import SwiftJWW
 
-@Suite("DXF writer: elliptical arcs")
-struct DXFWriterEllipseTests {
+@Suite("DXF writer: arcs with a negative sweep")
+struct DXFWriterArcDirectionTests {
     typealias Point = JWW.Point
 
     let center = Point(x: 2, y: 1)
@@ -20,10 +20,10 @@ struct DXFWriterEllipseTests {
             full: false, layer: 0, color: 1)
     }
 
-    func written(_ e: JWW.Entity) throws -> ReferenceDXF.Entity {
+    func written(_ e: JWW.Entity, as type: String = "ELLIPSE") throws -> ReferenceDXF.Entity {
         let dwg = JWW.Drawing(version: 700, entities: [e], counts: .init())
         let entity = try #require(try ReferenceDXF(text: DXFWriter.string(dwg)).entities.first)
-        #expect(entity.type == "ELLIPSE")
+        #expect(entity.type == type)
         return entity
     }
 
@@ -76,5 +76,16 @@ struct DXFWriterEllipseTests {
         let d = try written(ellipse(start: degrees(20), sweep: degrees(-60)))
         #expect(try covers(d, point(at: 0)))
         #expect(try !covers(d, point(at: degrees(90))))
+    }
+
+    @Test("a circular arc with a negative sweep runs counter-clockwise over the same span")
+    func circularArc() throws {
+        // From 100 degrees back to 40, measured from a tilt of 30: 70 to 130 from the x axis.
+        let arc = JWW.Entity.arc(
+            center: center, radius: radius, start: degrees(100), sweep: degrees(-60), tilt: tilt,
+            ratio: 1, full: false, layer: 0, color: 1)
+        let d = try written(arc, as: "ARC")
+        #expect(abs((d.number(50) ?? 0) - 70) < 1e-6)
+        #expect(abs((d.number(51) ?? 0) - 130) < 1e-6)
     }
 }
