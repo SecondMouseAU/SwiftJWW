@@ -65,10 +65,13 @@ for element in dwg.elements {
 let dxf = DXFWriter.string(dwg)          // or DXFWriter.write(dwg, to: url)
 let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size coordinates
 
-// Dimensions rebuilt from loose pieces, with a report of what was inferred.
+// Dimensions rebuilt from loose pieces, with a report of what the DXF text does not say.
 let out = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
 out.report.recoveredDimensions   // handles of the DIMENSIONs that were rebuilt, not stored
+out.report.recoveredDimensionElements   // for each of those handles, the indices of its pieces
 out.report.unexplainedValues     // indices into dwg.elements of value texts nothing explains
+out.report.appliedScales         // the factor applied to each layer group's top-level elements
+DXFWriter.layerName(group: 0, layer: 14)   // "0-E", the layer name the writer uses
 ```
 
 `JWW.looksLikeJWW(data)` sniffs the `JwwData.` signature. `Drawing.entities` is the same geometry
@@ -114,8 +117,9 @@ layer is named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own D
 layer 14 of layer group 0 is `0-E`. A `LAYER` table lists the layers used, with the JWW layer name
 (such as 寸法) as the description. With `Options.recoversDimensions` each dimension that
 `recoveringDimensions()` rebuilds is written as one `DIMENSION` with its loose pieces in the block it
-names, and `DXFWriter.output` reports the handles of those `DIMENSION`s and the value texts nothing
-explained. Dimensions rebuilt from loose pieces are inferred, so a consumer should treat them as such.
+names, and `DXFWriter.output` reports the handles of those `DIMENSION`s, the elements each was built
+from, and the value texts nothing explained. Dimensions rebuilt from loose pieces are inferred, so a
+consumer should treat them as such.
 
 **Scale in the DXF.** The writer keeps drawn coordinates unless `DXFWriter.Options.fullSize` is set.
 With it, each element is multiplied by the scale of its own layer group (a group at 1:80 by 80), so a
