@@ -142,7 +142,9 @@ the stated value within one unit of its last decimal place, picks the pair neare
 the lines that end on the points. An exact duplicate of a text is folded into the dimension it repeats.
 It is an inference, so `DimensionRecovery.unmatchedValues` lists every value text it could not explain:
 radius, diameter and angle values, values in another unit, and values that differ from the drawn
-distance. A recovered dimension has no reference points, so its `measuredPoints` are its arrow points.
+distance. A duplicate of such a text is listed too, so each value text is either among the
+`elementIndices` of one recovered dimension or in `unmatchedValues`, and never in both. A recovered
+dimension has no reference points, so its `measuredPoints` are its arrow points.
 
 ### Blocks
 
