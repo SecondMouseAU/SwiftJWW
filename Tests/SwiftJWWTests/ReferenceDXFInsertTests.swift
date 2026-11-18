@@ -82,6 +82,24 @@ struct ReferenceDXFInsertTests {
         #expect(abs((arc.number(51) ?? .nan) - 50) < 1e-9)
     }
 
+    @Test("a member that cannot be placed is listed and left out, not kept in block coordinates")
+    func unplaceableMember() throws {
+        let file = try dxf(
+            blocks: [
+                block("T", members: "0 TEXT 8 P 10 1 20 1 11 2 21 2 40 1 1 A 72 1"),
+                block("S", members: "0 SOLID 8 P 10 1 20 1 11 2 21 1 12 1 22 2 13 2 23 2"),
+                block("L", members: "0 LINE 8 P 10 1 20 1 11 2 21 1"),
+            ],
+            entities: [
+                "0 INSERT 2 T 8 P 10 5 20 5 41 2 42 2", "0 INSERT 2 S 8 P 10 5 20 5 41 2 42 2",
+                "0 INSERT 2 L 8 P 10 0 20 0 41 1 42 1",
+            ])
+        let placed = file.flattened()
+        // Only the line, which an insert at the origin at scale 1 leaves in place.
+        #expect(placed.entities.map(\.type) == ["LINE"])
+        #expect(placed.unsupported.count == 2)
+    }
+
     @Test("a mirror, an uneven scale, an array and a missing block are listed, not placed")
     func unsupported() throws {
         let file = try dxf(

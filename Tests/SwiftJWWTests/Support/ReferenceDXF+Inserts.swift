@@ -58,8 +58,7 @@ extension ReferenceDXF {
 
         func place(_ e: Entity, _ p: Placement, layer: String?, depth: Int) {
             guard e.type == "INSERT" else {
-                let placed = moved(e, by: p, layer: layer)
-                result.entities.append(placed)
+                if let placed = moved(e, by: p, layer: layer) { result.entities.append(placed) }
                 return
             }
             let name = e.text(2) ?? ""
@@ -93,7 +92,8 @@ extension ReferenceDXF {
             for member in inside { place(member, p.after(local), layer: own, depth: depth + 1) }
         }
 
-        func moved(_ e: Entity, by p: Placement, layer: String?) -> Entity {
+        /// The member placed by `p`, or nil, after listing it as unsupported, when it cannot be.
+        func moved(_ e: Entity, by p: Placement, layer: String?) -> Entity? {
             var out = e
             if let layer, e.layer == "0" { out.groups[8] = [layer] }
             guard !p.isIdentity else { return out }
@@ -135,14 +135,16 @@ extension ReferenceDXF {
                     out.groups[21] = [number(q.y)]
                 }
             case "TEXT":
+                guard e.groups[11] == nil else {
+                    result.unsupported.append("a TEXT with an alignment point in a block")
+                    return nil
+                }
                 point(10, 20)
                 scaled(40)
                 turned(50)
-                if e.groups[11] != nil {
-                    result.unsupported.append("a TEXT with an alignment point in a block")
-                }
             default:
                 result.unsupported.append("a \(e.type) in a block placed by an insert")
+                return nil
             }
             return out
         }
