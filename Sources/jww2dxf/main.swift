@@ -31,10 +31,12 @@ do {
     let dwg = try JWW.read(contentsOf: inURL)
     let report = try DXFWriter.write(dwg, to: outURL, options: options)
     let c = dwg.counts
+    // A solid fill is not read, whether it is at the top level or in a block definition.
+    let solids = c.solid + dwg.blocks.values.reduce(0) { $0 + $1.solidCount }
     var line = "\(inURL.lastPathComponent) → \(outURL.lastPathComponent)  (v\(dwg.version); "
     line += "\(c.line) line, \(c.arc) arc, \(c.point) point, \(c.text) text"
-    if c.solid + c.block + c.dim > 0 {
-        line += "; skipped \(c.solid) solid/\(c.block) block/\(c.dim) dim"
+    if solids + c.block + c.dim > 0 {
+        line += "; skipped \(solids) solid/\(c.block) block/\(c.dim) dim"
     }
     if options.recoversDimensions {
         line += "; \(report.recoveredDimensions.count) dimensions recovered, "

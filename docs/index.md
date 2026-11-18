@@ -44,9 +44,11 @@ swift run jww2dxf drawing.jww out.dxf
 swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
 
-Prints a one-line summary (version, entity counts, bbox) and writes the DXF. `--full-size` and
-`--recover-dimensions` set the [writer options](#scale) of the same names, and with the second the
-summary adds how many dimensions were recovered and how many values stayed unexplained.
+Prints a one-line summary (version, entity counts, what was skipped, bbox) and writes the DXF. The
+skipped solid fills are those at the top level and those in block definitions, each counted once.
+`--full-size` and `--recover-dimensions` set the [writer options](#scale) of the same names, and with
+the second the summary adds how many dimensions were recovered and how many values stayed
+unexplained.
 
 ---
 
@@ -165,7 +167,7 @@ definition number, name, position in its container, placement and attributes. A 
 layer, line type and colour. `BlockExpansion.unresolved` holds inserts left out because the definition
 is missing or the block contains itself, and `BlockExpansion.solidCount` the number of solid fills the
 expanded drawing holds ([see Model](#model)). Which layer Jw_cad draws a block member on is not checked
-against a real file, because none of the available drawings contains a block.
+against a real file, because none of the drawings that have a DXF export beside them contains a block.
 
 ---
 
@@ -271,7 +273,8 @@ drawing with no layer groups, or a group with no usable scale, is written as dra
 
 Block members are written as drawn, in the block's own coordinates, and the insert carries the
 scale of its own layer group. A member in a layer group of a different scale does not use it.
-No available drawing contains a block, so this is not checked against a real file.
+No drawing that has a DXF export beside it contains a block, so this is not checked against a real
+file.
 
 With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
 times the layer group scale is the stated value.
