@@ -127,14 +127,11 @@ struct DXFEmitter {
                     p(20, num(c.y))
                     p(30, "0.0")
                     p(40, num(r))
-                    // JWW start/sweep are measured from the tilt axis; DXF wants absolute CCW angles in
-                    // [0,360). Add tilt, and order start→end CCW (so a negative sweep isn't drawn inverted).
-                    let a0 = tilt + start
-                    let a1 = tilt + start + sweep
-                    let lo = sweep >= 0 ? a0 : a1
-                    let hi = sweep >= 0 ? a1 : a0
-                    p(50, num(normDeg(lo * deg)))
-                    p(51, num(normDeg(hi * deg)))
+                    // JWW angles are measured from the tilt axis, DXF angles from the x axis in
+                    // degrees, in [0, 360).
+                    let ends = JWW.Entity.counterClockwiseEnds(start: tilt + start, sweep: sweep)
+                    p(50, num(normDeg(ends.start * deg)))
+                    p(51, num(normDeg(ends.end * deg)))
                 }
             } else {  // ellipse / elliptical arc
                 head("ELLIPSE", layer, color)
@@ -145,8 +142,10 @@ struct DXFEmitter {
                 p(21, num(sin(tilt) * r))
                 p(31, "0.0")  // major axis endpoint, rel. to center
                 p(40, num(ratio))
-                p(41, num(full ? 0 : start))
-                p(42, num(full ? 2 * .pi : start + sweep))
+                // The parameters are measured from the major axis, in radians, as JWW's are.
+                let ends = JWW.Entity.counterClockwiseEnds(start: start, sweep: sweep)
+                p(41, num(full ? 0 : ends.start))
+                p(42, num(full ? 2 * .pi : ends.end))
             }
 
         case .point(let at, let layer, let color):

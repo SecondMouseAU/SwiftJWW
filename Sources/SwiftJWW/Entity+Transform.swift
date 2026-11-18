@@ -28,6 +28,12 @@ extension JWW.Entity {
         }
     }
 
+    /// The ends of an arc from `start` through `sweep` in counter-clockwise order, so that a
+    /// negative sweep starts at its far end.
+    static func counterClockwiseEnds(start: Double, sweep: Double) -> (start: Double, end: Double) {
+        sweep >= 0 ? (start, start + sweep) : (start + sweep, start)
+    }
+
     /// An arc mapped through `t`, as the ellipse `c + u*cos(s) + v*sin(s)` with conjugate radii.
     ///
     /// Any affine map sends it to another such ellipse. Its principal axes give the new radius,
@@ -54,7 +60,7 @@ extension JWW.Entity {
         var newStart = start - phi
         var newSweep = sweep
         if mirrored {
-            newStart = sweep >= 0 ? phi - start - sweep : phi - start
+            newStart = phi - counterClockwiseEnds(start: start, sweep: sweep).end
             newSweep = abs(sweep)
         }
         return .arc(

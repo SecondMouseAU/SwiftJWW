@@ -11,6 +11,11 @@ extension JWW {
         /// Inserts left out because their definition is missing or they reference their own block,
         /// directly or through other blocks.
         public var unresolved: [BlockReference]
+        /// The number of solid fills the expanded drawing holds, none of which the reader reads.
+        ///
+        /// The top-level fills, and for each insert expanded at any depth, its block's
+        /// ``BlockDef/solidCount``.
+        public var solidCount: Int
     }
 }
 
@@ -27,15 +32,17 @@ extension JWW.Drawing {
     public func expandingBlocks(maxDepth: Int = 32) -> JWW.BlockExpansion {
         var out: [JWW.Element] = []
         var unresolved: [JWW.BlockReference] = []
+        var solids = counts.solid
         expand(
             elements, transform: .identity, chain: [], maxDepth: maxDepth, into: &out,
-            unresolved: &unresolved)
-        return JWW.BlockExpansion(elements: out, unresolved: unresolved)
+            unresolved: &unresolved, solids: &solids)
+        return JWW.BlockExpansion(elements: out, unresolved: unresolved, solidCount: solids)
     }
 
     private func expand(
         _ list: [JWW.Element], transform: Affine, chain: [JWW.BlockReference], maxDepth: Int,
-        into out: inout [JWW.Element], unresolved: inout [JWW.BlockReference]
+        into out: inout [JWW.Element], unresolved: inout [JWW.BlockReference],
+        solids: inout Int
     ) {
         for (index, element) in list.enumerated() {
             guard
@@ -61,9 +68,11 @@ extension JWW.Drawing {
             let placement = Affine(
                 scaleX: scaleX == 0 ? 1 : scaleX, scaleY: scaleY == 0 ? 1 : scaleY,
                 rotation: rotation, translation: at)
+            solids += block.solidCount
             expand(
                 block.elements, transform: transform.concatenating(placement),
-                chain: chain + [reference], maxDepth: maxDepth, into: &out, unresolved: &unresolved)
+                chain: chain + [reference], maxDepth: maxDepth, into: &out, unresolved: &unresolved,
+                solids: &solids)
         }
     }
 }

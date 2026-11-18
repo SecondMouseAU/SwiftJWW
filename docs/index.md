@@ -44,9 +44,11 @@ swift run jww2dxf drawing.jww out.dxf
 swift run jww2dxf --full-size --recover-dimensions drawing.jww
 ```
 
-Prints a one-line summary (version, entity counts, bbox) and writes the DXF. `--full-size` and
-`--recover-dimensions` set the [writer options](#scale) of the same names, and with the second the
-summary adds how many dimensions were recovered and how many values stayed unexplained.
+Prints a one-line summary (version, entity counts, what was skipped, bbox) and writes the DXF. The
+skipped solid fills are `Drawing.skippedSolidCount`: those at the top level and those in block
+definitions, each counted once. `--full-size` and `--recover-dimensions` set the
+[writer options](#scale) of the same names, and with the second the summary adds how many
+dimensions were recovered and how many values stayed unexplained.
 
 ---
 
@@ -99,9 +101,18 @@ struct Element {                     // Drawing.elements, BlockDef.elements
 }
 ```
 
-`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) for
-verification against reference tools; `Drawing.bounds` gives the drawing extent. `Drawing.entities`
-is the geometry of `Drawing.elements` without the attributes, kept for source compatibility.
+`Drawing.counts` exposes per-class counts (line / arc / point / text / solid / block / dim) of the
+top-level objects for verification against reference tools; `Drawing.bounds` gives the drawing
+extent. `Drawing.entities` is the geometry of `Drawing.elements` without the attributes, kept for
+source compatibility.
+
+The reader skips solid fills (`CDataSolid`) without reading their shape, so a count is all that is
+left of them. `counts.solid` counts the top-level ones. A solid fill inside a block definition is
+counted in that block's `BlockDef.solidCount` instead, and each insert of the block places it again,
+including an insert inside another block. `Drawing.skippedSolidCount` is the number the file
+stores: the top-level fills plus each block definition's, counted once. `BlockExpansion.solidCount`
+is the total the expanded drawing holds: the top-level fills, plus each expanded insert's block
+count.
 
 `text.angleRad` is in radians. The file stores the angle in degrees; earlier releases passed the stored
 number through unconverted, so a text turned 90 degrees read as 90 radians.
@@ -156,8 +167,9 @@ mirrored block never leaves it upside down (the turn it takes stays within a qua
 Each expanded `Element.references` lists the inserts it came from, outermost first, each with its
 definition number, name, position in its container, placement and attributes. A member keeps its own
 layer, line type and colour. `BlockExpansion.unresolved` holds inserts left out because the definition
-is missing or the block contains itself. Which layer Jw_cad draws a block member on is not checked
-against a real file, because none of the available drawings contains a block.
+is missing or the block contains itself, and `BlockExpansion.solidCount` the number of solid fills the
+expanded drawing holds ([see Model](#model)). Which layer Jw_cad draws a block member on is not checked
+against a real file, because none of the drawings that have a DXF export beside them contains a block.
 
 ---
 
@@ -175,6 +187,10 @@ against a real file, because none of the available drawings contains a block.
 | block insert | `INSERT` (refers to `BLK<number>`) |
 | dimension record | `DIMENSION` (rotated linear), with its parts in an anonymous `*D<n>` block |
 | dimension record from a file older than 4.20 | decomposed into `LINE` / `TEXT` / `POINT` parts |
+
+A DXF `ARC` or `ELLIPSE` runs counter-clockwise from its start to its end, so a circular or
+elliptical arc with a negative sweep is written from its far end. The DXF then covers the same part
+of the curve as the JWW.
 
 Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
 tools. JWW pen colours pass through as AutoCAD Color Index values.
@@ -259,7 +275,8 @@ drawing with no layer groups, or a group with no usable scale, is written as dra
 
 Block members are written as drawn, in the block's own coordinates, and the insert carries the
 scale of its own layer group. A member in a layer group of a different scale does not use it.
-No available drawing contains a block, so this is not checked against a real file.
+No drawing that has a DXF export beside it contains a block, so this is not checked against a real
+file.
 
 With full size, a `DIMENSION` measures its stated value as it is. Without it, the measured length
 times the layer group scale is the stated value.
