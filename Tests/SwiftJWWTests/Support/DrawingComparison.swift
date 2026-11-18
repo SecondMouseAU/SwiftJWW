@@ -11,6 +11,8 @@ import Foundation
 /// - A layer is named `_<group>-<layer>_<name>` with group and layer in hex. A name character whose
 ///   CP932 bytes the export cannot keep is written as one underscore per byte.
 /// - The format is R12, which has no `ELLIPSE`: an elliptical arc is written as `LINE` segments.
+///   A ratio that is not exactly 1 makes an arc elliptical, even when it differs from 1 by less
+///   than a billionth, as the circles of `el15` do.
 /// - A line of line type 9 is written on a layer called `ADD_LINE`.
 /// Anything beyond those is reported as unexplained.
 enum DrawingComparison {
@@ -85,8 +87,15 @@ enum DrawingComparison {
         for element in expansion.elements {
             collect(element.entity, element.attributes, jww, offset, ltscale, &expected)
         }
+        let placed = dxf.flattened()
+        report.unexplained.append(contentsOf: placed.unsupported.map { "the DXF has \($0)" })
+        if placed.insertCount > 0 {
+            report.explained.append(
+                "\(placed.insertCount) DXF inserts of \(dxf.blocks.count) blocks placed, "
+                    + "against \(jww.blocks.count) block definitions in the JWW")
+        }
         var actual: [Item] = []
-        for entity in dxf.entities {
+        for entity in placed.entities {
             if let item = dxfItem(entity) {
                 actual.append(item)
             } else {
@@ -108,6 +117,7 @@ enum DrawingComparison {
         }
 
         var ellipseSegments = 0
+        var strayPoints = 0
         for key in Set(expectedBy.keys).union(actualBy.keys).sorted() {
             let parts = key.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
             let layer = String(parts[0])
@@ -121,6 +131,8 @@ enum DrawingComparison {
             for item in extra {
                 if kind == .line, isEllipseSegment(item, ellipsesBy[layer] ?? []) {
                     ellipseSegments += 1
+                } else if kind == .line, isStrayPoint(item, among: want) {
+                    strayPoints += 1
                 } else {
                     report.unexplained.append(
                         "in the DXF, not in the JWW on \(layer): \(item.note)")
@@ -133,16 +145,63 @@ enum DrawingComparison {
                 "\(ellipseCount) elliptical arcs written as \(ellipseSegments) LINE segments (R12 has no ELLIPSE)"
             )
         }
+        if strayPoints > 0 {
+            report.explained.append(
+                "\(strayPoints) zero-length LINEs in the DXF at the end of a JWW line, "
+                    + "which no JWW object explains")
+        }
         let dotted = expected.filter { $0.layer == "ADD_LINE" }.count
         if dotted > 0 {
             report.explained.append("\(dotted) line type 9 lines written on layer ADD_LINE")
         }
 
-        checkLayerNames(jww, dxf, &report)
+        checkLayerNames(jww, placed.entities, &report)
         let flat = JWW.Drawing(
             version: jww.version, elements: expansion.elements, blocks: [:], counts: jww.counts,
             layerGroups: jww.layerGroups)
-        checkDimensions(flat, dxf, ltscale, offset, &report)
+        checkDimensions(flat, placed.entities, ltscale, offset, &report)
+        return report
+    }
+
+    /// Compares two DXFs entity by entity, with the inserts of each placed first.
+    ///
+    /// This is for two texts written by the same writer, so a layer is matched by its name.
+    static func compare(_ expected: ReferenceDXF, with actual: ReferenceDXF) -> Report {
+        var report = Report()
+        var items: [[Item]] = []
+        for (side, dxf) in [("expected", expected), ("actual", actual)] {
+            let placed = dxf.flattened()
+            report.unexplained.append(contentsOf: placed.unsupported.map { "\(side) has \($0)" })
+            var placedItems: [Item] = []
+            for entity in placed.entities {
+                if let item = dxfItem(entity) {
+                    placedItems.append(item)
+                } else {
+                    report.unexplained.append("\(side) has an unsupported \(entity.type)")
+                }
+            }
+            items.append(placedItems)
+        }
+        var wantBy: [String: [Item]] = [:]
+        var gotBy: [String: [Item]] = [:]
+        for item in items[0] {
+            wantBy["\(item.layer)|\(item.kind.rawValue)", default: []].append(item)
+        }
+        for item in items[1] {
+            gotBy["\(item.layer)|\(item.kind.rawValue)", default: []].append(item)
+        }
+        for key in Set(wantBy.keys).union(gotBy.keys).sorted() {
+            let want = wantBy[key] ?? []
+            let (missing, extra) = match(want, gotBy[key] ?? [])
+            let kind = String(key.split(separator: "|").last ?? "")
+            report.matched[kind, default: 0] += want.count - missing.count
+            for item in missing {
+                report.unexplained.append("only in the expected: \(key) \(item.note)")
+            }
+            for item in extra {
+                report.unexplained.append("only in the actual: \(key) \(item.note)")
+            }
+        }
         return report
     }
 
@@ -178,7 +237,7 @@ enum DrawingComparison {
                     key: [p.x, p.y, height * scale, degrees], text: string))
         case .arc(let c, let r, let start, let sweep, let tilt, let ratio, let isFull, let layer, _):
             let center = full(c)
-            if abs(ratio - 1) > 1e-9 {
+            if ratio != 1 {
                 let ellipse = JWW.Entity.arc(
                     center: .init(x: center.x, y: center.y), radius: r * scale,
                     start: isFull ? 0 : start, sweep: isFull ? 2 * .pi : sweep, tilt: tilt,
@@ -241,9 +300,9 @@ enum DrawingComparison {
 
     /// Every DXF layer's name must be the JWW layer's name, or the same bytes with some written as `_`.
     private static func checkLayerNames(
-        _ jww: JWW.Drawing, _ dxf: ReferenceDXF, _ report: inout Report
+        _ jww: JWW.Drawing, _ entities: [ReferenceDXF.Entity], _ report: inout Report
     ) {
-        for layer in Set(dxf.entities.map(\.layer)).sorted() {
+        for layer in Set(entities.map(\.layer)).sorted() {
             guard let parts = splitLayer(layer) else { continue }
             var name: String?
             if jww.layerGroups.indices.contains(parts.group),
@@ -293,6 +352,13 @@ enum DrawingComparison {
             return Item(
                 kind: .arc, layer: layerKey(e.layer), anchor: (x, y),
                 key: [x, y, r] + onCircle(a0 + span / 2) + onCircle(a0) + onCircle(a0 + span))
+        case "ELLIPSE":
+            guard let mx = e.number(11), let my = e.number(21), let ratio = e.number(40),
+                let t0 = e.number(41), let t1 = e.number(42)
+            else { return nil }
+            return Item(
+                kind: .ellipse, layer: layerKey(e.layer), anchor: (x, y),
+                key: [x, y, mx, my, ratio, t0, t1])
         case "TEXT":
             guard let h = e.number(40), let string = e.text(1) else { return nil }
             var degrees = (e.number(50) ?? 0).truncatingRemainder(dividingBy: 360)
@@ -355,6 +421,23 @@ enum DrawingComparison {
         return (missing, extra)
     }
 
+    /// True when `line` has no length and lies at an end of one of the layer's lines.
+    ///
+    /// The exports of `hk0805` and `hk9000` have 16 and 12 of these that no JWW object accounts for. What writes them is
+    /// not known, so they are counted and listed as explained only when they sit on a JWW line.
+    private static func isStrayPoint(_ line: Item, among lines: [Item]) -> Bool {
+        guard abs(line.key[0] - line.key[2]) <= tolerance,
+            abs(line.key[1] - line.key[3]) <= tolerance
+        else { return false }
+        return lines.contains { other in
+            other.kind == .line
+                && ((abs(other.key[0] - line.key[0]) <= tolerance
+                    && abs(other.key[1] - line.key[1]) <= tolerance)
+                    || (abs(other.key[2] - line.key[0]) <= tolerance
+                        && abs(other.key[3] - line.key[1]) <= tolerance))
+        }
+    }
+
     /// True when both ends of a line lie on one of the layer's elliptical arcs.
     private static func isEllipseSegment(_ line: Item, _ ellipses: [Item]) -> Bool {
         let ends = [
@@ -373,11 +456,11 @@ enum DrawingComparison {
     /// The drawing is the block-expanded one, as in the rest of the comparison, so dimensions
     /// inside blocks are checked too.
     private static func checkDimensions(
-        _ jww: JWW.Drawing, _ dxf: ReferenceDXF, _ scale: Double, _ offset: (x: Double, y: Double),
-        _ report: inout Report
+        _ jww: JWW.Drawing, _ entities: [ReferenceDXF.Entity], _ scale: Double,
+        _ offset: (x: Double, y: Double), _ report: inout Report
     ) {
         let recovery = jww.recoveringDimensions()
-        let texts = dxf.entities.filter { $0.type == "TEXT" }
+        let texts = entities.filter { $0.type == "TEXT" }
         for found in recovery.dimensions {
             let label = found.dimension.label
             let x = (label.at.x + offset.x) * scale

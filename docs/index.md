@@ -292,14 +292,21 @@ each published as JWW and as DXF. A test reads each JWW and compares it with its
 layer and coordinates must match within 0.01 mm of full size. Across the 13 drawings 58,607 lines,
 arcs, circles, points and texts match one for one.
 
+Block expansion is checked on 271 more TECS drawings, the ones whose published DXF holds block
+inserts. Each of the 271 JWW files holds a block definition for every insert in its DXF: 29,332
+inserts, 22 of them nested. After the inserts of the DXF are placed, 1,323,803 lines, arcs, circles,
+points and texts match the block-expanded JWW within 0.01 mm of full size. A second test writes each
+drawing with `DXFWriter` at full size, with its blocks, and checks that placing the written inserts
+gives the entities of the same drawing written with its blocks already expanded.
+
 The site allows free use for individual hobby purposes and names no licence, so the files are not in
-this repository. Put each `<name>.jww` beside its `<name>.dxf` in a folder and run:
+this repository. Put each `<name>.jww` beside its `<name>.dxf` in a folder, at any depth, and run:
 
 ```
 SWIFTJWW_FIXTURES=/path/to/folder swift test
 ```
 
-Without the variable the test is skipped.
+Without the variable the tests are skipped. All 271 block drawings take about two minutes.
 
 The comparison applies the conventions of that DXF export. They were read from these files, not taken
 from a specification:
@@ -310,6 +317,8 @@ from a specification:
 | `$LTSCALE` | the scale of the write-target layer group, applied to every layer group |
 | Layer name | `_<group>-<layer>_<name>`, with group and layer in hex |
 | Elliptical arc | written as `LINE` segments, because the R12 format has no `ELLIPSE` |
+| Ratio not exactly 1 | an arc or circle whose ratio differs from 1 by only `7.6e-10` is an elliptical arc too (`el15`) |
+| Block | a `BLOCK` of the members at full size about the block origin, and an `INSERT` at (position + half the sheet) times `$LTSCALE` with the scale of the JWW insert |
 | Line type 9 | the line is written on a layer called `ADD_LINE` |
 | Layer name characters | some are written as underscores, one per byte (`ブレーキ` is `ブレ__キ`) |
 
@@ -321,12 +330,22 @@ What the comparison showed:
   for example 1:80 for `2120`. Two drawings (`h15tdl1`, `h15tdl2`) also use a second layer group at
   1:10 and 1:5. The DXF export applies 1:50 to it, so converting those objects with their own group
   scale gives a different size from the DXF.
-- **No drawing holds a dimension record, a block or a solid.** Their dimensions are loose lines,
-  points and text with the dimension attribute flags set. `recoveringDimensions()` rebuilt 214 of
-  the 241 dimension values, each with its text at the same place in the DXF. The other 27 are
-  diameters such as `860φ` and values with decimals that no pair of arrow points explains; they are
-  listed in `unmatchedValues`.
-- Block expansion and dimension records are therefore validated on synthetic fixtures only.
+- **None of the 13 drawings holds a dimension record, a block or a solid.** Their dimensions are
+  loose lines, points and text with the dimension attribute flags set. `recoveringDimensions()`
+  rebuilt 214 of the 241 dimension values, each with its text at the same place in the DXF. The other
+  27 are diameters such as `860φ` and values with decimals that no pair of arrow points explains;
+  they are listed in `unmatchedValues`.
+- **Block expansion agrees with the export in all 271 block drawings.** The coordinates, layers and
+  counts of every expanded member match, with the two differences below. The inserts in these files
+  are never rotated or mirrored and never scaled unevenly: 15,462 have scale 0.8 and 13,848 scale 1.
+  Rotation, mirroring and uneven scale of block expansion are therefore validated on synthetic
+  fixtures only. So are dimension records, since none of the 271 drawings holds one, and solids.
+- **Elliptical arcs** are written as `LINE` segments in 194 of the 271 drawings: 2,943 arcs, 44,329
+  segments. The 16 circles of `el15` that are written this way have a ratio of `1 - 7.6e-10`, so the
+  export reads any ratio other than exactly 1 as an ellipse.
+- **28 zero-length lines** in the DXF of two drawings (16 in `hk0805`, 12 in `hk9000`) have no object in the
+  JWW. Each is at the end of a JWW line. They are counted as explained, but what writes them is not
+  known.
 
 ---
 

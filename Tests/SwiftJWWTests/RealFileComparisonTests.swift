@@ -29,6 +29,11 @@ enum Fixtures {
         return found.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }()
 
+    /// The drawings of ``drawings`` that hold block definitions.
+    static let blockDrawings: [URL] = drawings.filter {
+        (try? JWW.read(contentsOf: $0))?.blocks.isEmpty == false
+    }
+
     static let pairs: [Pair] = {
         guard let path = ProcessInfo.processInfo.environment["SWIFTJWW_FIXTURES"],
             let walker = FileManager.default.enumerator(
