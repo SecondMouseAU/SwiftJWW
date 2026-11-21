@@ -127,6 +127,12 @@ part drawn at 1:10 has the bounds of the same part drawn at 1:1, and the measure
 `DIMENSION` is its stated value with no further scale. A block insert scales its position and scale
 factors, so its members follow the group of the insert, not their own.
 
+**Unit in the DXF.** A `HEADER` section declares `$INSUNITS` 4 (millimetres), so a reader does not
+have to assume the unit. It is millimetres with or without `fullSize`: with it the coordinates are
+real millimetres (a layer group with no usable scale stays as drawn), and without it they are
+millimetres of paper at the drawn scale (a length times the scale of its layer group is the real
+one). The `HEADER` has no `$ACADVER`.
+
 ## Validation
 
 The line, arc, point and text core is validated byte-for-byte against the reference reader. In

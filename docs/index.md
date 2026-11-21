@@ -200,8 +200,26 @@ above 1 is longer across the tilt. It is written with the perpendicular axis as 
 reciprocal ratio, and its start and end parameters turned back a quarter turn. The DXF draws the
 same curve.
 
-Output is an entities-only, version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD
-tools. JWW pen colours pass through as AutoCAD Color Index values.
+Output is a version-agnostic ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD tools. JWW pen
+colours pass through as AutoCAD Color Index values.
+
+### Header and unit
+
+The file opens with a `HEADER` section that declares `$INSUNITS` `4` (millimetres). Jw_cad draws in
+millimetres, so a reader gets the unit from the file instead of assuming it. The `HEADER` has no
+`$ACADVER`, so `SwiftDXF` reports an empty version. R12, the version Jw_cad's own DXF export
+declares, has no `ELLIPSE`, which the writer emits, and later versions expect subclass markers,
+which it does not, so no version fits the whole file.
+
+The unit is millimetres whatever the options, and what a coordinate measures differs:
+
+| `fullSize` | A coordinate is | A line drawn 10 long in a layer group at 1:80 |
+|---|---|---|
+| set | real millimetres | written as 800 |
+| not set | millimetres of paper, at the drawn scale | written as 10, which is 800 at full size |
+
+Without `fullSize`, the scale of the layer group ([Scale](#scale), `Drawing.layerGroups`) turns a
+length into a real one. With it, a layer group with no usable scale is still written as drawn.
 
 ### Layers and handles
 
