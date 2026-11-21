@@ -22,21 +22,26 @@ struct DXFWriterHeaderTests {
         let insert = JWW.Entity.insert(
             def: 7, at: .init(x: 2, y: 3), scaleX: 1, scaleY: 1, rotationRad: 0, layer: 0, color: 1)
         let def = JWW.BlockDef(number: 7, name: "box", elements: [.init(entity: line)])
-        let entities = [
+        let entities: [JWW.Entity] = [
             line, arc, circle, ellipse, helper.dot(1, 2), helper.text("A", 1, 2), insert,
         ]
-        return helper.drawing(
-            entities.map { .init(entity: $0) } + [helper.record(length: 10, label: "500")],
-            blocks: [7: def], scales: [0: 80])
+        var elements: [JWW.Element] = entities.map { JWW.Element(entity: $0) }
+        elements.append(helper.record(length: 10, label: "500"))
+        return helper.drawing(elements, blocks: [7: def], scales: [0: 80])
     }
 
     /// The names of the sections in the order the text has them.
     func sections(_ text: String) -> [String] {
-        let lines = text.components(separatedBy: "\n")
-        return stride(from: 2, to: lines.count - 1, by: 2).compactMap {
-            lines[$0 - 2] == "0" && lines[$0 - 1] == "SECTION" && lines[$0] == "2"
-                ? lines[$0 + 1] : nil
+        let lines: [String] = text.components(separatedBy: "\n")
+        var names: [String] = []
+        var index = 2
+        while index + 1 < lines.count {
+            let isRecord: Bool = lines[index - 2] == "0" && lines[index - 1] == "SECTION"
+            let isName: Bool = lines[index] == "2"
+            if isRecord && isName { names.append(lines[index + 1]) }
+            index += 2
         }
+        return names
     }
 
     // MARK: the unit
@@ -66,10 +71,14 @@ struct DXFWriterHeaderTests {
             .init(fullSize: true, recoversDimensions: true),
         ]
         let bare = JWW.Drawing(version: 700, entities: [helper.line(0, 0, 1, 1)], counts: .init())
-        for dwg in [helper.drawing([]), bare, mixed] {
+        let drawings: [(name: String, drawing: JWW.Drawing)] = [
+            ("empty", helper.drawing([])), ("bare entities", bare), ("mixed", mixed),
+        ]
+        for (name, dwg) in drawings {
             for option in options {
                 let dxf = try ReferenceDXF(text: DXFWriter.string(dwg, options: option))
-                #expect(dxf.header["$INSUNITS"]?[70] == "4")
+                let unit = dxf.header["$INSUNITS"]?[70]
+                #expect(unit == "4", "\(name) drawing with \(option)")
             }
         }
     }
