@@ -2,12 +2,14 @@ import Foundation
 
 /// Writes a ``JWW/Drawing`` as an ASCII **DXF**.
 ///
-/// An entities-only, version-agnostic DXF that AutoCAD / LibreCAD / most CAD tools accept. Maps
+/// A version-agnostic DXF that AutoCAD / LibreCAD / most CAD tools accept. Maps
 /// JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
 /// elliptical arc→`ELLIPSE`, point→`POINT`, text→`TEXT`, block insert→`INSERT`, and a dimension
 /// record with its measured points→`DIMENSION`. Each entity has a handle (group 5), and its layer is
 /// named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export: layer
 /// 14 of group 0 is `0-E`.
+///
+/// The `HEADER` declares `$INSUNITS` 4, millimetres; ``Options/fullSize`` says which millimetres.
 public enum DXFWriter {
 
     /// What the writer does beyond copying each entity as it is drawn.
@@ -17,6 +19,10 @@ public enum DXFWriter {
         /// A group drawn at 1:80 has its lengths multiplied by 80. Each element uses its own
         /// group's scale, so a drawing whose groups differ in scale is not averaged. A block insert
         /// scales its position and scale factors, and its members follow the insert.
+        ///
+        /// The `HEADER` says millimetres either way. With this set the coordinates are real
+        /// millimetres (a group with no usable scale stays as drawn), and without it they are
+        /// millimetres of paper at the drawn scale.
         public var fullSize: Bool
 
         /// Writes the dimensions ``JWW/Drawing/recoveringDimensions()`` rebuilds as `DIMENSION`s.
@@ -128,6 +134,7 @@ public enum DXFWriter {
         }
 
         var s = "999\nSwiftJWW\n"
+        s += header()
         s += emitter.tables()
         if !blocks.isEmpty || !emitter.anonymousBlocks.isEmpty {
             s += "0\nSECTION\n2\nBLOCKS\n" + blocks + emitter.anonymousBlocks.joined()
@@ -159,7 +166,7 @@ public enum DXFWriter {
     ///
     /// Strips newlines, and escapes every non-ASCII character as the DXF `\U+XXXX` unicode
     /// escape. This renders correctly in AutoCAD / LibreCAD regardless of the reader's assumed
-    /// code page (an entities-only DXF carries no `$DWGCODEPAGE`).
+    /// code page (the `HEADER` carries no `$DWGCODEPAGE`).
     static func dxfText(_ s: String) -> String {
         var out = ""
         for u in s.unicodeScalars {
