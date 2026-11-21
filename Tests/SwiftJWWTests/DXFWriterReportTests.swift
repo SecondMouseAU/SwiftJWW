@@ -73,6 +73,76 @@ struct DXFWriterReportTests {
         #expect(lists == [[0, 1, 3], [1, 2, 4]])
     }
 
+    @Test("each handle's pieces are the ones recoveringDimensions() gives, with their roles")
+    func piecesWithRoles() throws {
+        typealias Piece = JWW.RecoveredDimension.Piece
+        let dwg = twoDimensions
+        let report = DXFWriter.output(dwg, options: recover).report
+        let lists = report.recoveredDimensions.map { report.recoveredDimensionPieces[$0] ?? [] }
+        #expect(lists == dwg.recoveringDimensions().dimensions.map(\.pieces))
+        #expect(
+            lists == [
+                [
+                    Piece(index: 1, role: .dimensionLine), Piece(index: 2, role: .extensionLine),
+                    Piece(index: 3, role: .extensionLine), Piece(index: 4, role: .arrowPoint),
+                    Piece(index: 5, role: .arrowPoint), Piece(index: 6, role: .valueText),
+                ],
+                [
+                    Piece(index: 7, role: .arrowPoint), Piece(index: 8, role: .arrowPoint),
+                    Piece(index: 9, role: .valueText),
+                ],
+            ])
+        // The roles go with the indices the report already gave.
+        for handle in report.recoveredDimensions {
+            #expect(
+                report.recoveredDimensionPieces[handle]?.map(\.index)
+                    == report.recoveredDimensionElements[handle])
+        }
+    }
+
+    @Test("a piece two dimensions share has its own role in the pieces of each handle")
+    func sharedPieceInEach() throws {
+        typealias Piece = JWW.RecoveredDimension.Piece
+        let report = DXFWriter.output(dimensions.corner, options: recover).report
+        #expect(report.recoveredDimensions.count == 2)
+        let lists = report.recoveredDimensions.compactMap { report.recoveredDimensionPieces[$0] }
+        let along = try #require(lists.first { $0.contains(Piece(index: 3, role: .valueText)) })
+        let up = try #require(lists.first { $0.contains(Piece(index: 4, role: .valueText)) })
+        // The corner arrow point and the line between the corner and the far end are in both.
+        #expect(
+            along == [
+                Piece(index: 0, role: .arrowPoint), Piece(index: 1, role: .arrowPoint),
+                Piece(index: 3, role: .valueText), Piece(index: 5, role: .extensionLine),
+            ])
+        #expect(
+            up == [
+                Piece(index: 0, role: .arrowPoint), Piece(index: 2, role: .arrowPoint),
+                Piece(index: 4, role: .valueText), Piece(index: 5, role: .dimensionLine),
+            ])
+    }
+
+    @Test("a copy of the value text is reported as a copy, not as a second value text")
+    func copyOfTheValueText() throws {
+        let dwg = dimensions.drawing([
+            dimensions.arrow(0, 0), dimensions.arrow(10, 0), dimensions.valueText("800", 4, 1),
+            dimensions.valueText("800", 4, 1),
+        ])
+        let report = DXFWriter.output(dwg, options: recover).report
+        let handle = try #require(report.recoveredDimensions.first)
+        #expect(
+            report.recoveredDimensionPieces[handle] == [
+                .init(index: 0, role: .arrowPoint), .init(index: 1, role: .arrowPoint),
+                .init(index: 2, role: .valueText), .init(index: 3, role: .valueTextCopy),
+            ])
+        #expect(report.recoveredDimensionElements[handle] == [0, 1, 2, 3])
+    }
+
+    @Test("without the option no pieces are reported")
+    func noPiecesWithoutOption() {
+        let report = DXFWriter.output(twoDimensions).report
+        #expect(report.recoveredDimensionPieces.isEmpty)
+    }
+
     @Test("the report gives the factor each layer group was multiplied by")
     func appliedScales() throws {
         let elements = [0, 1, 2].map { group in

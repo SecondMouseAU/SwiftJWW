@@ -45,6 +45,9 @@ public enum DXFWriter {
         ///
         /// Each list is the ``JWW/RecoveredDimension/elementIndices`` of that dimension.
         public var recoveredDimensionElements: [String: [Int]]
+        /// For each handle in ``recoveredDimensions``, the ``JWW/RecoveredDimension/pieces`` of that
+        /// dimension: the elements of ``recoveredDimensionElements`` with their roles.
+        public var recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]]
         /// The factor the top-level elements of each layer group were multiplied by, keyed by group.
         ///
         /// Every layer group of a top-level element is listed. The factor is the group's scale with
@@ -54,11 +57,14 @@ public enum DXFWriter {
 
         public init(
             recoveredDimensions: [String] = [], unexplainedValues: [Int] = [],
-            recoveredDimensionElements: [String: [Int]] = [:], appliedScales: [Int: Double] = [:]
+            recoveredDimensionElements: [String: [Int]] = [:],
+            recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]] = [:],
+            appliedScales: [Int: Double] = [:]
         ) {
             self.recoveredDimensions = recoveredDimensions
             self.unexplainedValues = unexplainedValues
             self.recoveredDimensionElements = recoveredDimensionElements
+            self.recoveredDimensionPieces = recoveredDimensionPieces
             self.appliedScales = appliedScales
         }
     }
@@ -122,6 +128,7 @@ public enum DXFWriter {
                 let handle = emitter.emitRecovered(found, as: dimension, into: &entities)
                 report.recoveredDimensions.append(handle)
                 report.recoveredDimensionElements[handle] = found.elementIndices
+                report.recoveredDimensionPieces[handle] = found.pieces
             }
             if consumed.contains(index) { continue }
             emitter.emit(element, scale: emitter.scale(of: element), into: &entities)

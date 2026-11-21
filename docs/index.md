@@ -157,6 +157,22 @@ distance. A duplicate of such a text is listed too, so each value text is either
 `elementIndices` of one recovered dimension or in `unmatchedValues`, and never in both. A recovered
 dimension has no reference points, so its `measuredPoints` are its arrow points.
 
+Each `RecoveredDimension` gives its `elementIndices` and, as `pieces`, the same elements in the same
+order, each with the `Role` the recovery gave it:
+
+| `Role` | The piece |
+|---|---|
+| `valueText` | the value text |
+| `valueTextCopy` | a copy of the value text, stored at the same place |
+| `arrowPoint` | one of the two arrow points |
+| `dimensionLine` | a line parallel to the line through the arrow points (its sine to that line is under 0.001), with both ends within 0.001 of it, that shares more than a point with the span between them |
+| `extensionLine` | a line that is not parallel to that line (its sine is 0.001 or more) and has an end on an arrow point |
+
+The role is the recovery's own decision, taken where it collects the lines of a dimension, so a
+consumer does not need to apply the 0.001 sine test again to tell the two apart. A line parallel to
+the arrow points' line that does not lie along it, or meets it only at a point, is neither and is not
+a piece. An element that two chained dimensions share has its role in the `pieces` of each.
+
 ### Blocks
 
 `Drawing.expandingBlocks(maxDepth:)` returns a `BlockExpansion`. Each insert is replaced in place by
@@ -266,14 +282,16 @@ returns the report too:
 |---|---|
 | `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
 | `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from, in the order its block holds them: the `elementIndices` `recoveringDimensions()` gives for it |
+| `recoveredDimensionPieces` | for each of those handles, the same elements in the same order, each as a `RecoveredDimension.Piece` of its `index` and its `role` ([Role](#dimensions)): the `pieces` `recoveringDimensions()` gives for it |
 | `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
 | `appliedScales` | the factor the top-level elements of each layer group were multiplied by ([Scale](#scale)) |
 
-The three dimension fields are empty without the option. Once the DXF is parsed, a dimension's
+The four dimension fields are empty without the option. Once the DXF is parsed, a dimension's
 handle links it to its pieces in the JWW: the value text, the arrow points, the dimension line and
-the extension lines, with each one's text, position and layer. A piece that two chained dimensions
-share is listed for both, and a dimension's value text stored twice at the same place is listed
-with its copy. A JWW element's position is in drawn coordinates: times `appliedScales` for its
+the extension lines, with each one's text, position and layer, and `recoveredDimensionPieces` says
+which of those each is. A piece that two chained dimensions share is listed for both, with its role
+in each, and a dimension's value text stored twice at the same place is listed with its copy as a
+`valueTextCopy`. A JWW element's position is in drawn coordinates: times `appliedScales` for its
 layer group, it is where the DXF draws the piece.
 
 On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
@@ -286,6 +304,10 @@ On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a line
 
 With full size, each measures its stated value to within one unit of the last decimal place of its
 text, the same tolerance the recovery matches with.
+
+The 29 dimensions of the `2120` hold 29 value texts, 1 copy of a value text, 58 arrow points, 30
+dimension lines and 56 extension lines, which is what `recoveredDimensionPieces` reports (a piece two
+dimensions share counts once for each).
 
 ### Scale
 

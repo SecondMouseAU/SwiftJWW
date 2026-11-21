@@ -7,7 +7,46 @@ extension JWW {
         /// Indices into ``Drawing/elements`` of the value text and any copy of it stored at the same
         /// place, the two arrow points, the dimension line pieces and the extension lines the
         /// dimension was built from, in ascending order.
+        ///
+        /// These are the indices of ``pieces``, which also say what each element is.
         public var elementIndices: [Int]
+        /// What each element of ``elementIndices`` is to this dimension, in the same order.
+        public internal(set) var pieces: [Piece]
+
+        /// What an element is to the dimension rebuilt from it.
+        public enum Role: String, Sendable, Hashable, CaseIterable {
+            /// The value text.
+            case valueText
+            /// A copy of the value text, stored at the same place.
+            case valueTextCopy
+            /// One of the two arrow points.
+            case arrowPoint
+            /// A line along the dimension line.
+            case dimensionLine
+            /// A line that ends on an arrow point and is not parallel to the dimension line.
+            case extensionLine
+        }
+
+        /// An element of ``Drawing/elements`` and its role in a recovered dimension.
+        public struct Piece: Sendable, Hashable {
+            /// The index into ``Drawing/elements``.
+            public var index: Int
+            /// What the element is to the dimension.
+            public var role: Role
+
+            public init(index: Int, role: Role) {
+                self.index = index
+                self.role = role
+            }
+        }
+
+        /// A dimension from its pieces, which are kept in ascending order of index.
+        init(dimension: Dimension, pieces: [Piece]) {
+            let ordered = pieces.sorted { $0.index < $1.index }
+            self.dimension = dimension
+            self.pieces = ordered
+            self.elementIndices = ordered.map(\.index)
+        }
     }
 
     /// The outcome of ``Drawing/recoveringDimensions()``.
@@ -200,7 +239,12 @@ extension JWW.Drawing {
         let dx = q.at.x - p.at.x
         let dy = q.at.y - p.at.y
         let length = hypot(dx, dy)
-        var indices = [text.index, p.index, q.index] + text.duplicates
+        typealias Piece = JWW.RecoveredDimension.Piece
+        var pieces = [
+            Piece(index: text.index, role: .valueText), Piece(index: p.index, role: .arrowPoint),
+            Piece(index: q.index, role: .arrowPoint),
+        ]
+        pieces += text.duplicates.map { Piece(index: $0, role: .valueTextCopy) }
         var extensionLines: [JWW.Dimension.Segment] = []
         for line in lines where line.group == text.group {
             let direction = JWW.Point(x: line.b.x - line.a.x, y: line.b.y - line.a.y)
@@ -209,12 +253,12 @@ extension JWW.Drawing {
             let cross = abs(direction.x * dy - direction.y * dx) / (lineLength * length)
             if cross < 1e-3 {
                 if Self.overlaps(line, p: p.at, q: q.at, tolerance: tolerance) {
-                    indices.append(line.index)
+                    pieces.append(Piece(index: line.index, role: .dimensionLine))
                 }
             } else if Self.touches(line.a, p.at, q.at, tolerance)
                 || Self.touches(line.b, p.at, q.at, tolerance)
             {
-                indices.append(line.index)
+                pieces.append(Piece(index: line.index, role: .extensionLine))
                 extensionLines.append(JWW.Dimension.Segment(a: line.a, b: line.b))
             }
         }
@@ -223,8 +267,7 @@ extension JWW.Drawing {
             dimensionLine: JWW.Dimension.Segment(a: p.at, b: q.at), label: text.label,
             value: text.value, extensionLines: extensionLines, arrowPoints: [p.at, q.at],
             measuredPoints: [p.at, q.at])
-        return JWW.RecoveredDimension(
-            dimension: dimension, elementIndices: Array(Set(indices)).sorted())
+        return JWW.RecoveredDimension(dimension: dimension, pieces: pieces)
     }
 
     /// True when `r` coincides with either end `p` or `q`.

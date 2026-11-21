@@ -173,6 +173,104 @@ struct DimensionTests {
         #expect(try #require(result.dimensions.first).elementIndices == [0, 1, 2, 3])
     }
 
+    typealias Piece = JWW.RecoveredDimension.Piece
+
+    @Test("each piece of a recovered dimension has its role, in the order of the indices")
+    func pieceRoles() throws {
+        let dwg = drawing([
+            dimLine(0, 0, 10, 0), dimLine(0, 0, 0, 3), dimLine(10, 0, 10, 3), arrow(0, 0),
+            arrow(10, 0), valueText("800", 4, 1), valueText("800", 4, 1),
+        ])
+        let found = try #require(dwg.recoveringDimensions().dimensions.first)
+        #expect(
+            found.pieces == [
+                Piece(index: 0, role: .dimensionLine), Piece(index: 1, role: .extensionLine),
+                Piece(index: 2, role: .extensionLine), Piece(index: 3, role: .arrowPoint),
+                Piece(index: 4, role: .arrowPoint), Piece(index: 5, role: .valueText),
+                Piece(index: 6, role: .valueTextCopy),
+            ])
+        #expect(found.pieces.map(\.index) == found.elementIndices)
+        let witness = found.pieces.filter { $0.role == .extensionLine }
+        #expect(witness.count == found.dimension.extensionLines.count)
+    }
+
+    @Test("a piece two chained dimensions share has its role in each")
+    func sharedPieceRoles() throws {
+        // Arrow points 0 to 2, values 3 and 4, then a witness line at each of x = 5 (shared), 0
+        // and 10, and the dimension line of each half.
+        let dwg = drawing([
+            arrow(0, 0), arrow(5, 0), arrow(10, 0), valueText("400", 2, 1), valueText("400", 7, 1),
+            dimLine(5, 0, 5, 3), dimLine(0, 0, 0, 3), dimLine(10, 0, 10, 3), dimLine(0, 0, 5, 0),
+            dimLine(5, 0, 10, 0),
+        ])
+        let found = dwg.recoveringDimensions().dimensions
+        #expect(found.count == 2)
+        #expect(
+            found[0].pieces == [
+                Piece(index: 0, role: .arrowPoint), Piece(index: 1, role: .arrowPoint),
+                Piece(index: 3, role: .valueText), Piece(index: 5, role: .extensionLine),
+                Piece(index: 6, role: .extensionLine), Piece(index: 8, role: .dimensionLine),
+            ])
+        #expect(
+            found[1].pieces == [
+                Piece(index: 1, role: .arrowPoint), Piece(index: 2, role: .arrowPoint),
+                Piece(index: 4, role: .valueText), Piece(index: 5, role: .extensionLine),
+                Piece(index: 7, role: .extensionLine), Piece(index: 9, role: .dimensionLine),
+            ])
+    }
+
+    /// Two 800 dimensions from the same corner, one along x and one along y, and the line between
+    /// the corner and the end of the second: an extension line of the first, the dimension line of
+    /// the second.
+    var corner: JWW.Drawing {
+        drawing([
+            arrow(0, 0), arrow(10, 0), arrow(0, 10), valueText("800", 4, 1),
+            valueText("800", -1, 5), dimLine(0, 0, 0, 10),
+        ])
+    }
+
+    @Test("a piece two dimensions share can be a different thing to each")
+    func differentRoleInEach() throws {
+        let found = corner.recoveringDimensions().dimensions
+        #expect(found.count == 2)
+        let along = try #require(found.first { $0.elementIndices.contains(3) })
+        let up = try #require(found.first { $0.elementIndices.contains(4) })
+        #expect(along.pieces.contains(Piece(index: 5, role: .extensionLine)))
+        #expect(up.pieces.contains(Piece(index: 5, role: .dimensionLine)))
+        #expect(along.pieces.contains(Piece(index: 0, role: .arrowPoint)))
+        #expect(up.pieces.contains(Piece(index: 0, role: .arrowPoint)))
+    }
+
+    @Test("every repeat of a value text at the same place is a copy")
+    func manyCopies() throws {
+        let dwg = drawing([
+            arrow(0, 0), arrow(10, 0), valueText("800", 4, 1), valueText("800", 4, 1),
+            valueText("800", 4, 1),
+        ])
+        let found = try #require(dwg.recoveringDimensions().dimensions.first)
+        #expect(
+            found.pieces.suffix(3) == [
+                Piece(index: 2, role: .valueText), Piece(index: 3, role: .valueTextCopy),
+                Piece(index: 4, role: .valueTextCopy),
+            ])
+    }
+
+    @Test("a line is a dimension line or an extension line by the recovery's parallel threshold")
+    func roleAtTheParallelThreshold() throws {
+        // Two lines of length 0.5 from the first arrow point, which is 10 from the second. The
+        // first rises 0.00045, a sine of 0.0009 to the dimension line, which is under the 0.001
+        // the recovery takes as parallel. The second rises 0.00055, a sine of 0.0011.
+        let dwg = drawing([
+            arrow(0, 0), arrow(10, 0), valueText("800", 4, 1), dimLine(0, 0, 0.5, 0.00045),
+            dimLine(0, 0, 0.5, 0.00055),
+        ])
+        let found = try #require(dwg.recoveringDimensions().dimensions.first)
+        #expect(
+            found.pieces.suffix(2) == [
+                Piece(index: 3, role: .dimensionLine), Piece(index: 4, role: .extensionLine),
+            ])
+    }
+
     /// How many times each value text of `dwg` is in a recovered dimension or in the unexplained
     /// values, which is once for each text when nothing drops out and nothing is counted twice.
     func placements(_ dwg: JWW.Drawing, _ result: JWW.DimensionRecovery) -> [Int: Int] {

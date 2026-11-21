@@ -59,6 +59,11 @@ struct RealFileDXFWriterTests {
             output.report.recoveredDimensionElements[$0] ?? []
         }
         #expect(lists == dwg.recoveringDimensions().dimensions.map(\.elementIndices), "\(name)")
+        let pieces = output.report.recoveredDimensions.map {
+            output.report.recoveredDimensionPieces[$0] ?? []
+        }
+        #expect(pieces == dwg.recoveringDimensions().dimensions.map(\.pieces), "\(name)")
+        #expect(pieces.map { $0.map(\.index) } == lists, "\(name)")
         let groups = Set(dwg.elements.map(\.attributes.layerGroup))
         #expect(Set(output.report.appliedScales.keys) == groups, "\(name)")
         for group in groups {
@@ -66,6 +71,50 @@ struct RealFileDXFWriterTests {
             let stated = dwg.scale(ofLayerGroup: group) ?? 1
             let factor = stated.isFinite && stated > 0 ? stated : 1
             #expect(output.report.appliedScales[group] == factor, "\(name)")
+        }
+    }
+
+    @Test(
+        "each piece's role fits what the element is: text, points, and lines by where they lie",
+        .enabled(if: !Fixtures.drawings.isEmpty), arguments: Fixtures.drawings)
+    func rolesFitTheElements(_ url: URL) throws {
+        let name = url.deletingPathExtension().lastPathComponent
+        let dwg = try JWW.read(contentsOf: url)
+        let report = DXFWriter.output(dwg, options: .init(recoversDimensions: true)).report
+        let tolerance = 1e-3
+        for handle in report.recoveredDimensions {
+            let pieces = try #require(report.recoveredDimensionPieces[handle], "\(name)")
+            let arrows: [JWW.Point] = pieces.filter { $0.role == .arrowPoint }.compactMap {
+                if case .point(let at, _, _) = dwg.elements[$0.index].entity { at } else { nil }
+            }
+            #expect(arrows.count == 2, "\(name) \(handle)")
+            guard arrows.count == 2 else { continue }
+            let span = hypot(arrows[1].x - arrows[0].x, arrows[1].y - arrows[0].y)
+            func distance(_ a: JWW.Point, _ b: JWW.Point) -> Double { hypot(a.x - b.x, a.y - b.y) }
+            func offLine(_ r: JWW.Point) -> Double {
+                abs(
+                    (r.x - arrows[0].x) * (arrows[1].y - arrows[0].y)
+                        - (r.y - arrows[0].y) * (arrows[1].x - arrows[0].x)) / span
+            }
+            for piece in pieces {
+                let entity = dwg.elements[piece.index].entity
+                switch (piece.role, entity) {
+                case (.arrowPoint, .point), (.valueText, .text), (.valueTextCopy, .text):
+                    break
+                case (.dimensionLine, .line(let a, let b, _, _)):
+                    #expect(offLine(a) <= tolerance && offLine(b) <= tolerance, "\(name) \(handle)")
+                case (.extensionLine, .line(let a, let b, _, _)):
+                    let ends =
+                        arrows.contains { distance($0, a) <= tolerance }
+                        || arrows.contains { distance($0, b) <= tolerance }
+                    #expect(ends, "\(name) \(handle): an extension line ends on an arrow point")
+                    // A line along the arrow line is the dimension line, not an extension line.
+                    let along = offLine(a) <= tolerance && offLine(b) <= tolerance
+                    #expect(!along, "\(name) \(handle): an extension line crosses the arrow line")
+                default:
+                    Issue.record("\(name) \(handle): \(piece.role) is not a \(entity)")
+                }
+            }
         }
     }
 
@@ -86,6 +135,30 @@ struct RealFileDXFWriterTests {
         }
         #expect(onLayer.count == 125)
         #expect(Set(report.recoveredDimensionElements.values.joined()) == Set(onLayer))
+    }
+
+    @Test(
+        "the 2120's report gives each piece the role recoveringDimensions() found for it",
+        .enabled(if: Fixtures.drawings.contains { $0.lastPathComponent == "2120.jww" }))
+    func rolesOf2120() throws {
+        let url = try #require(Fixtures.drawings.first { $0.lastPathComponent == "2120.jww" })
+        let dwg = try JWW.read(contentsOf: url)
+        let report = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
+            .report
+        let found = dwg.recoveringDimensions().dimensions
+        #expect(found.count == 29 && report.recoveredDimensions.count == 29)
+        let reported = report.recoveredDimensions.flatMap {
+            report.recoveredDimensionPieces[$0] ?? []
+        }
+        #expect(reported == found.flatMap(\.pieces))
+        var counts: [JWW.RecoveredDimension.Role: Int] = [:]
+        for piece in reported { counts[piece.role, default: 0] += 1 }
+        #expect(counts[.valueText] == 29)
+        #expect(counts[.valueTextCopy] == 1)
+        #expect(counts[.arrowPoint] == 58)
+        #expect(counts[.dimensionLine] == 30)
+        #expect(counts[.extensionLine] == 56)
+        #expect(Set(counts.keys) == Set(JWW.RecoveredDimension.Role.allCases))
     }
 
     @Test(
