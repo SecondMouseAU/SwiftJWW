@@ -132,8 +132,9 @@ reader does not have to assume the unit. It is millimetres with or without `full
 coordinates are real millimetres (a layer group with no usable scale stays as drawn), and without
 it they are millimetres of paper at the drawn scale (a length times the scale of its layer group is
 the real one). It also declares `$ACADVER` `AC1009` (R12), the version Jw_cad's own export
-declares. That names how the file is built, not its content: the writer also emits `ELLIPSE`,
-`$INSUNITS` and handles, which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)).
+declares, with `$HANDLING` 1 and a `$HANDSEED` above every handle, so the handles are valid in R12.
+That names how the file is built, not its content: the writer also emits `ELLIPSE` and `$INSUNITS`,
+which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)).
 
 ## Validation
 

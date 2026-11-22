@@ -134,9 +134,11 @@ public enum DXFWriter {
             emitter.emit(element, scale: emitter.scale(of: element), into: &entities)
         }
 
+        // The tables take handles too, so they are built before the header, which names the next.
+        let tables = emitter.tables()
         var s = "999\nSwiftJWW\n"
-        s += header()
-        s += emitter.tables()
+        s += header(handseed: emitter.nextHandleText)
+        s += tables
         if !blocks.isEmpty || !emitter.anonymousBlocks.isEmpty {
             s += "0\nSECTION\n2\nBLOCKS\n" + blocks + emitter.anonymousBlocks.joined()
             s += "0\nENDSEC\n"
