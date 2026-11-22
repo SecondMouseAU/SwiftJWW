@@ -218,7 +218,7 @@ content is R12. The writer also emits `ELLIPSE` (R13 and later, and real drawing
 strictly may skip or reject those. The ones checked do not: `SwiftDXF`, `ezdxf` 1.4.5 (the same
 entities and no audit fixes as with no version, and the units read) and, from its source,
 LibreCAD's `libdxfrw` (it parses `ELLIPSE` in any version, and asks for handles only of a version
-after R12). AutoCAD was not run. Declaring a later version would first need the subclass markers
+after R12). AutoCAD was not run with the version declared. Declaring a later version would first need the subclass markers
 and owner handles on every record.
 
 The unit is millimetres whatever the options, and what a coordinate measures differs:

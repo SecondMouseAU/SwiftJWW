@@ -8,9 +8,6 @@ extension DXFWriter {
     static let insertionUnits = 4
 
     /// The `HEADER` section: the version and the length unit of the coordinates.
-    ///
-    /// The version names the structure of the file (no subclass markers), not the content (see the
-    /// docs for what R12 does not have).
     static func header() -> String {
         "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\n\(versionName)\n"
             + "9\n$INSUNITS\n70\n\(insertionUnits)\n0\nENDSEC\n"
