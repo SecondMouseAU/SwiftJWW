@@ -63,7 +63,12 @@ struct RealFileDXFWriterTests {
             output.report.recoveredDimensionPieces[$0] ?? []
         }
         #expect(pieces == dwg.recoveringDimensions().dimensions.map(\.pieces), "\(name)")
-        #expect(pieces.map { $0.map(\.index) } == lists, "\(name)")
+        #expect(
+            Set(output.report.recoveredDimensionElements.keys)
+                == Set(dimensions.compactMap { $0.text(5) }), "\(name)")
+        for list in output.report.recoveredDimensionElements.values {
+            #expect(list == list.sorted() && Set(list).count == list.count, "\(name)")
+        }
         for found in dwg.recoveringDimensions().dimensions {
             #expect(found.elementIndices == found.elementIndices.sorted(), "\(name)")
             #expect(Set(found.elementIndices).count == found.elementIndices.count, "\(name)")

@@ -26,5 +26,8 @@ timestamp: 2026-11-22
 - **`DXFWriter.Report`** (in `SwiftJWW`): what the DXF text alone does not say: the handles of the
   recovered `DIMENSION`s with the indices of the elements each was built from and the role of each
   (value text, copy of it, arrow point, dimension line, extension line), the value texts
-  nothing explained, and the factor applied to each layer group.
+  nothing explained, and the factor applied to each layer group. `recoveredDimensionPieces` is the
+  stored value and `recoveredDimensionElements` is computed from it; it was a settable stored `var`
+  and an `init` parameter in 1.5.0, so assigning it, or passing it to `Report.init`, is a
+  source-breaking change.
   `DXFWriter.layerName(group:layer:)` gives the layer name the writer uses.
