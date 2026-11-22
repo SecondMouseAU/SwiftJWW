@@ -40,14 +40,14 @@ public enum DXFWriter {
         public var recoveredDimensions: [String]
         /// Indices into ``JWW/Drawing/elements`` of the dimension value texts no dimension explains.
         public var unexplainedValues: [Int]
-        /// For each handle in ``recoveredDimensions``, the indices into ``JWW/Drawing/elements`` of
-        /// the pieces the `DIMENSION` was built from and holds in its block.
-        ///
-        /// Each list is the ``JWW/RecoveredDimension/elementIndices`` of that dimension.
-        public var recoveredDimensionElements: [String: [Int]]
         /// For each handle in ``recoveredDimensions``, the ``JWW/RecoveredDimension/pieces`` of that
-        /// dimension: the elements of ``recoveredDimensionElements`` with their roles.
+        /// dimension: the elements it was built from and holds in its block, each with its role.
         public var recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]]
+        /// For each handle in ``recoveredDimensions``, the indices into ``JWW/Drawing/elements`` of
+        /// its ``recoveredDimensionPieces``, in the same order, computed from them.
+        public var recoveredDimensionElements: [String: [Int]] {
+            recoveredDimensionPieces.mapValues { $0.map(\.index) }
+        }
         /// The factor the top-level elements of each layer group were multiplied by, keyed by group.
         ///
         /// Every layer group of a top-level element is listed. The factor is the group's scale with
@@ -57,13 +57,11 @@ public enum DXFWriter {
 
         public init(
             recoveredDimensions: [String] = [], unexplainedValues: [Int] = [],
-            recoveredDimensionElements: [String: [Int]] = [:],
             recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]] = [:],
             appliedScales: [Int: Double] = [:]
         ) {
             self.recoveredDimensions = recoveredDimensions
             self.unexplainedValues = unexplainedValues
-            self.recoveredDimensionElements = recoveredDimensionElements
             self.recoveredDimensionPieces = recoveredDimensionPieces
             self.appliedScales = appliedScales
         }
@@ -127,7 +125,6 @@ public enum DXFWriter {
             for (found, dimension) in starting[index] ?? [] {
                 let handle = emitter.emitRecovered(found, as: dimension, into: &entities)
                 report.recoveredDimensions.append(handle)
-                report.recoveredDimensionElements[handle] = found.elementIndices
                 report.recoveredDimensionPieces[handle] = found.pieces
             }
             if consumed.contains(index) { continue }

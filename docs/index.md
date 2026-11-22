@@ -177,9 +177,8 @@ a piece. An element that two chained dimensions share has its role in the `piece
 **Source-breaking change.** In 1.5.0 `RecoveredDimension.elementIndices` was a stored `var`. It is now
 read-only and computed from `pieces`, which are the stored values, so code that assigns
 `elementIndices`, or that constructs a `RecoveredDimension` with it, no longer compiles. Reading
-`elementIndices` is unchanged, with the same values in the same order, and so is
-`Report.recoveredDimensionElements`. The memberwise initialiser was internal, so only code using
-`@testable import` could construct a `RecoveredDimension`.
+`elementIndices` is unchanged, with the same values in the same order. The memberwise initialiser was
+internal, so only code using `@testable import` could construct a `RecoveredDimension`.
 
 ### Blocks
 
@@ -289,8 +288,8 @@ returns the report too:
 | Field | Value |
 |---|---|
 | `recoveredDimensions` | the handles of the `DIMENSION`s rebuilt from loose pieces rather than read from a stored record, in the order written, so a consumer can mark them as inferred |
-| `recoveredDimensionElements` | for each of those handles, the indices into `Drawing.elements` of the pieces the `DIMENSION` was built from, in the order its block holds them: the `elementIndices` `recoveringDimensions()` gives for it |
-| `recoveredDimensionPieces` | for each of those handles, the same elements in the same order, each as a `RecoveredDimension.Piece` of its `index` and its `role` ([Role](#dimensions)): the `pieces` `recoveringDimensions()` gives for it |
+| `recoveredDimensionPieces` | for each of those handles, the pieces the `DIMENSION` was built from, in the order its block holds them, each as a `RecoveredDimension.Piece` of its `index` and its `role` ([Role](#dimensions)): the `pieces` `recoveringDimensions()` gives for it |
+| `recoveredDimensionElements` | for each of those handles, the `index` of each of its `recoveredDimensionPieces`, in the same order, computed from them: the `elementIndices` `recoveringDimensions()` gives for it |
 | `unexplainedValues` | the indices into `Drawing.elements` of the dimension value texts no dimension explains |
 | `appliedScales` | the factor the top-level elements of each layer group were multiplied by ([Scale](#scale)) |
 
@@ -301,6 +300,14 @@ which of those each is. A piece that two chained dimensions share is listed for 
 in each, and a dimension's value text stored twice at the same place is listed with its copy as a
 `valueTextCopy`. A JWW element's position is in drawn coordinates: times `appliedScales` for its
 layer group, it is where the DXF draws the piece.
+
+**Source-breaking change.** In 1.5.0 `Report.recoveredDimensionElements` was a stored `var` and a
+parameter of `Report.init`. `recoveredDimensionPieces` is now the stored value and
+`recoveredDimensionElements` is read-only and computed from it, so the two cannot disagree. Code that
+assigns `recoveredDimensionElements`, or that passes `recoveredDimensionElements:` to `Report.init`,
+no longer compiles; give the pieces instead. Reading either property is unchanged, with the same
+values in the same order, and so is every `Report.init` call that leaves `recoveredDimensionElements`
+out.
 
 On the TECS drawings (checked against SwiftDXF 0.4.0, which reads each as a linear `DIMENSION`):
 

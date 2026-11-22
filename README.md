@@ -68,8 +68,8 @@ let full = DXFWriter.string(dwg, options: .init(fullSize: true))   // full-size 
 // Dimensions rebuilt from loose pieces, with a report of what the DXF text does not say.
 let out = DXFWriter.output(dwg, options: .init(fullSize: true, recoversDimensions: true))
 out.report.recoveredDimensions   // handles of the DIMENSIONs that were rebuilt, not stored
-out.report.recoveredDimensionElements   // for each of those handles, the indices of its pieces
-out.report.recoveredDimensionPieces     // the same, each with its role: .valueText, .arrowPoint, ...
+out.report.recoveredDimensionPieces     // for each of those handles, its pieces and their roles
+out.report.recoveredDimensionElements   // the same, as indices only, computed from the pieces
 out.report.unexplainedValues     // indices into dwg.elements of value texts nothing explains
 out.report.appliedScales         // the factor applied to each layer group's top-level elements
 DXFWriter.layerName(group: 0, layer: 14)   // "0-E", the layer name the writer uses
@@ -124,7 +124,9 @@ layer 14 of layer group 0 is `0-E`. A `LAYER` table lists the layers used, with 
 `recoveringDimensions()` rebuilds is written as one `DIMENSION` with its loose pieces in the block it
 names, and `DXFWriter.output` reports the handles of those `DIMENSION`s, the elements each was built
 from with the role of each, and the value texts nothing explained. Dimensions rebuilt from loose pieces
-are inferred, so a consumer should treat them as such.
+are inferred, so a consumer should treat them as such. `Report.recoveredDimensionElements` is computed
+from `recoveredDimensionPieces` and no longer settable, which breaks code that assigns it or passes it
+to `Report.init`.
 
 **Scale in the DXF.** The writer keeps drawn coordinates unless `DXFWriter.Options.fullSize` is set.
 With it, each element is multiplied by the scale of its own layer group (a group at 1:80 by 80), so a

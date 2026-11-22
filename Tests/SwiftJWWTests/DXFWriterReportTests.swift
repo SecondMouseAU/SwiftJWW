@@ -73,6 +73,47 @@ struct DXFWriterReportTests {
         #expect(lists == [[0, 1, 3], [1, 2, 4]])
     }
 
+    @Test(
+        "the element indices of a report are those of its pieces, and follow them when they change")
+    func elementsFollowThePieces() {
+        typealias Piece = JWW.RecoveredDimension.Piece
+        var report = DXFWriter.Report(
+            recoveredDimensions: ["2A", "2B"],
+            recoveredDimensionPieces: [
+                "2A": [
+                    Piece(index: 2, role: .arrowPoint), Piece(index: 5, role: .valueText),
+                    Piece(index: 7, role: .arrowPoint),
+                ],
+                "2B": [],
+            ])
+        #expect(report.recoveredDimensionElements == ["2A": [2, 5, 7], "2B": []])
+        report.recoveredDimensionPieces["2B"] = [Piece(index: 9, role: .valueText)]
+        report.recoveredDimensionPieces["2A"] = nil
+        #expect(report.recoveredDimensionElements == ["2B": [9]])
+        #expect(DXFWriter.Report().recoveredDimensionElements.isEmpty)
+    }
+
+    @Test("chained dimensions are keyed by the handles in the DXF, with their indices ascending")
+    func elementsOfEveryHandle() throws {
+        let dwg = dimensions.drawing([
+            dimensions.arrow(0, 0), dimensions.arrow(5, 0), dimensions.arrow(10, 0),
+            dimensions.valueText("400", 2, 1), dimensions.valueText("400", 7, 1),
+            dimensions.valueText("400", 7, 1),
+        ])
+        let output = DXFWriter.output(dwg, options: recover)
+        let dxf = try ReferenceDXF(text: output.text)
+        let written = dxf.entities.filter { $0.type == "DIMENSION" }.compactMap { $0.text(5) }
+        #expect(written.count == 2)
+        #expect(Set(output.report.recoveredDimensionElements.keys) == Set(written))
+        #expect(
+            output.report.recoveredDimensionElements.values.sorted { $0[0] < $1[0] } == [
+                [0, 1, 3], [1, 2, 4, 5],
+            ])
+        for list in output.report.recoveredDimensionElements.values {
+            #expect(list == list.sorted() && Set(list).count == list.count)
+        }
+    }
+
     @Test("each handle's pieces are the ones recoveringDimensions() gives, with their roles")
     func piecesWithRoles() throws {
         typealias Piece = JWW.RecoveredDimension.Piece
@@ -92,12 +133,6 @@ struct DXFWriterReportTests {
                     Piece(index: 9, role: .valueText),
                 ],
             ])
-        // The roles go with the indices the report already gave.
-        for handle in report.recoveredDimensions {
-            #expect(
-                report.recoveredDimensionPieces[handle]?.map(\.index)
-                    == report.recoveredDimensionElements[handle])
-        }
     }
 
     @Test("a piece two dimensions share has its own role in the pieces of each handle")
