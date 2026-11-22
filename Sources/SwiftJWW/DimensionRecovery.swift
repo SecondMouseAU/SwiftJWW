@@ -5,9 +5,6 @@ extension JWW {
     public struct RecoveredDimension: Sendable {
         public var dimension: Dimension
         /// What each element the dimension was built from is to it, in ascending order of index.
-        ///
-        /// The elements are the value text and any copy of it stored at the same place, the two
-        /// arrow points, the dimension line pieces and the extension lines.
         public let pieces: [Piece]
         /// Indices into ``Drawing/elements`` of the ``pieces``, in ascending order, computed from them.
         public var elementIndices: [Int] { pieces.map(\.index) }
