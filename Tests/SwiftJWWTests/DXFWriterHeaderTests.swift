@@ -44,12 +44,26 @@ struct DXFWriterHeaderTests {
         return names
     }
 
-    // MARK: the unit
+    // MARK: the unit and the version
 
     @Test("the header declares millimetres")
     func declaresMillimetres() throws {
         let dxf = try ReferenceDXF(text: DXFWriter.string(helper.drawing([])))
         #expect(dxf.header["$INSUNITS"]?[70] == "4")
+    }
+
+    @Test("the header declares R12, the version Jw_cad's own export declares")
+    func declaresVersion() throws {
+        let dxf = try ReferenceDXF(text: DXFWriter.string(helper.drawing([])))
+        #expect(dxf.header["$ACADVER"]?[1] == "AC1009")
+    }
+
+    @Test("no record carries a subclass marker, which R12 does not have")
+    func noSubclassMarkers() throws {
+        let dxf = try ReferenceDXF(text: DXFWriter.string(mixed))
+        let records: [ReferenceDXF.Entity] = dxf.entities + dxf.blockRecords + dxf.tableRecords
+        #expect(!records.isEmpty)
+        #expect(records.allSatisfy { $0.groups[100] == nil })
     }
 
     @Test("full size and drawn coordinates are both declared in millimetres")
@@ -64,7 +78,7 @@ struct DXFWriterHeaderTests {
         #expect(full.entities.first?.number(11) == 800)
     }
 
-    @Test("every drawing and every option declares the unit")
+    @Test("every drawing and every option declares the version and the unit")
     func anyDrawingAnyOptions() throws {
         let options: [DXFWriter.Options] = [
             .init(), .init(fullSize: true), .init(recoversDimensions: true),
@@ -78,7 +92,9 @@ struct DXFWriterHeaderTests {
             for option in options {
                 let dxf = try ReferenceDXF(text: DXFWriter.string(dwg, options: option))
                 let unit = dxf.header["$INSUNITS"]?[70]
+                let version = dxf.header["$ACADVER"]?[1]
                 #expect(unit == "4", "\(name) drawing with \(option)")
+                #expect(version == "AC1009", "\(name) drawing with \(option)")
             }
         }
     }
@@ -101,8 +117,8 @@ struct DXFWriterHeaderTests {
         #expect(sections(text) == ["HEADER", "TABLES", "BLOCKS", "ENTITIES"])
         #expect(
             text.hasPrefix(
-                "999\nSwiftJWW\n0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n"
-                    + "0\nSECTION\n2\nTABLES\n"))
+                "999\nSwiftJWW\n0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n"
+                    + "9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n"))
     }
 
     @Test("the sections after the header hold the entities, blocks and layers of the drawing")

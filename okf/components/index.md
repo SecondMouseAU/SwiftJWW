@@ -13,8 +13,9 @@ timestamp: 2026-11-21
   ellipses, points, text, block inserts, dimensions) with their layer group, line type and colour,
   reads the layer groups with their scales, expands blocks, counts the solid fills it skips (at the
   top level and in each block definition), reads or recovers dimensions as one object, and converts
-  the drawing to DXF. The DXF has a `HEADER` declaring `$INSUNITS` 4 (millimetres: real ones with
-  full-size coordinates, paper ones at the drawn scale without), handles, layers named
+  the drawing to DXF. The DXF has a `HEADER` declaring `$ACADVER` `AC1009` and `$INSUNITS` 4
+  (millimetres: real ones with full-size coordinates, paper ones at the drawn scale without),
+  handles, layers named
   `<group>-<layer>` in hexadecimal with a `LAYER` table, dimension records as `DIMENSION` entities,
   and options to write full-size coordinates and to write recovered dimensions as `DIMENSION`s,
   with a report of them.
