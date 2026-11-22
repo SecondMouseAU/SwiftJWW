@@ -157,8 +157,9 @@ distance. A duplicate of such a text is listed too, so each value text is either
 `elementIndices` of one recovered dimension or in `unmatchedValues`, and never in both. A recovered
 dimension has no reference points, so its `measuredPoints` are its arrow points.
 
-Each `RecoveredDimension` gives its `elementIndices` and, as `pieces`, the same elements in the same
-order, each with the `Role` the recovery gave it:
+Each `RecoveredDimension` gives its `pieces`: the elements it was built from, in ascending order of
+index, each with the `Role` the recovery gave it. Its `elementIndices` are the indices of those pieces,
+computed from them, so the two cannot differ:
 
 | `Role` | The piece |
 |---|---|
@@ -172,6 +173,13 @@ The role is the recovery's own decision, taken where it collects the lines of a 
 consumer does not need to apply the 0.001 sine test again to tell the two apart. A line parallel to
 the arrow points' line that does not lie along it, or meets it only at a point, is neither and is not
 a piece. An element that two chained dimensions share has its role in the `pieces` of each.
+
+**Source-breaking change.** In 1.5.0 `RecoveredDimension.elementIndices` was a stored `var`. It is now
+read-only and computed from `pieces`, which are the stored values, so code that assigns
+`elementIndices`, or that constructs a `RecoveredDimension` with it, no longer compiles. Reading
+`elementIndices` is unchanged, with the same values in the same order, and so is
+`Report.recoveredDimensionElements`. The memberwise initialiser was internal, so only code using
+`@testable import` could construct a `RecoveredDimension`.
 
 ### Blocks
 

@@ -88,7 +88,10 @@ when the drawing used Jw_cad's dimension command; the TECS drawings keep the pie
 points and text with the dimension attribute flags set. `dwg.recoveringDimensions()` pairs each
 dimension value text with the two arrow points at its stated distance and lists every value it could
 not explain. Each `RecoveredDimension` gives its `pieces`: the elements it was built from, each with
-its `Role` (value text, a copy of it, arrow point, dimension line or extension line).
+its `Role` (value text, a copy of it, arrow point, dimension line or extension line). Its
+`elementIndices` are computed from `pieces` and no longer settable, which breaks code that assigns
+`elementIndices` or constructs a `RecoveredDimension` with it (see the
+[documentation](https://secondmouseau.github.io/SwiftJWW/#dimensions)).
 
 **Blocks.** `dwg.expandingBlocks()` replaces each insert with its block's members, with insertion
 point, scale and rotation applied and nested blocks followed. Each member lists the references it came

@@ -229,6 +229,31 @@ struct DimensionTests {
         ])
     }
 
+    @Test("the element indices are those of the pieces, in ascending order, whatever the drawing")
+    func indicesAreThoseOfThePieces() throws {
+        let drawings = [
+            corner,
+            drawing([
+                arrow(0, 0), arrow(5, 0), arrow(10, 0), valueText("400", 2, 1),
+                valueText("400", 7, 1), dimLine(5, 0, 5, 3), dimLine(0, 0, 5, 0),
+            ]),
+            drawing([
+                arrow(0, 0), arrow(10, 0), valueText("800", 4, 1), valueText("800", 4, 1),
+                dimLine(0, 0, 10, 0), dimLine(0, 0, 0, 3),
+            ]),
+        ]
+        var seen = 0
+        for dwg in drawings {
+            for found in dwg.recoveringDimensions().dimensions {
+                seen += 1
+                #expect(found.elementIndices == found.pieces.map(\.index))
+                #expect(found.elementIndices == found.elementIndices.sorted())
+                #expect(Set(found.elementIndices).count == found.elementIndices.count)
+            }
+        }
+        #expect(seen == 5)
+    }
+
     @Test("a piece two dimensions share can be a different thing to each")
     func differentRoleInEach() throws {
         let found = corner.recoveringDimensions().dimensions

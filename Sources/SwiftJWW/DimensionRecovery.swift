@@ -4,14 +4,18 @@ extension JWW {
     /// A dimension recovered from loose entities, with the elements it was built from.
     public struct RecoveredDimension: Sendable {
         public var dimension: Dimension
-        /// Indices into ``Drawing/elements`` of the value text and any copy of it stored at the same
-        /// place, the two arrow points, the dimension line pieces and the extension lines the
-        /// dimension was built from, in ascending order.
+        /// What each element the dimension was built from is to it, in ascending order of index.
         ///
-        /// These are the indices of ``pieces``, which also say what each element is.
-        public var elementIndices: [Int]
-        /// What each element of ``elementIndices`` is to this dimension, in the same order.
-        public internal(set) var pieces: [Piece]
+        /// The elements are the value text and any copy of it stored at the same place, the two
+        /// arrow points, the dimension line pieces and the extension lines.
+        public let pieces: [Piece]
+        /// Indices into ``Drawing/elements`` of the elements the dimension was built from, in
+        /// ascending order.
+        ///
+        /// These are the indices of ``pieces``, computed from it so the two cannot differ. This is a
+        /// source-breaking change from 1.5.0, where it was a stored `var`: code that assigns it, or
+        /// that builds a `RecoveredDimension` with it, no longer compiles.
+        public var elementIndices: [Int] { pieces.map(\.index) }
 
         /// What an element is to the dimension rebuilt from it.
         public enum Role: String, Sendable, Hashable, CaseIterable {
@@ -42,10 +46,8 @@ extension JWW {
 
         /// A dimension from its pieces, which are kept in ascending order of index.
         init(dimension: Dimension, pieces: [Piece]) {
-            let ordered = pieces.sorted { $0.index < $1.index }
             self.dimension = dimension
-            self.pieces = ordered
-            self.elementIndices = ordered.map(\.index)
+            self.pieces = pieces.sorted { $0.index < $1.index }
         }
     }
 
@@ -182,7 +184,7 @@ extension JWW.Drawing {
             unmatched.append(text.index)
             unmatched.append(contentsOf: text.duplicates)
         }
-        recovered.sort { $0.elementIndices[0] < $1.elementIndices[0] }
+        recovered.sort { $0.pieces[0].index < $1.pieces[0].index }
         return JWW.DimensionRecovery(dimensions: recovered, unmatchedValues: unmatched.sorted())
     }
 

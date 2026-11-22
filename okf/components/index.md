@@ -16,6 +16,10 @@ timestamp: 2026-11-21
   the drawing to DXF. The DXF has handles, layers named `<group>-<layer>` in hexadecimal with a
   `LAYER` table, dimension records as `DIMENSION` entities, and options to write full-size
   coordinates and to write recovered dimensions as `DIMENSION`s, with a report of them.
+- **`JWW.RecoveredDimension`** (in `SwiftJWW`): a dimension rebuilt from loose pieces, with its
+  `pieces` (each element it was built from and its role) as the stored source of truth.
+  `elementIndices` is computed from `pieces`; it was a settable stored `var` in 1.5.0, so assigning
+  it, or constructing a `RecoveredDimension` with it, is a source-breaking change.
 - **`jww2dxf`** (executable): CLI wrapper that reads a JWW drawing and writes the DXF equivalent.
 - **`DXFWriter.Report`** (in `SwiftJWW`): what the DXF text alone does not say: the handles of the
   recovered `DIMENSION`s with the indices of the elements each was built from and the role of each

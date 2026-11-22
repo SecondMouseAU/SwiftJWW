@@ -64,6 +64,10 @@ struct RealFileDXFWriterTests {
         }
         #expect(pieces == dwg.recoveringDimensions().dimensions.map(\.pieces), "\(name)")
         #expect(pieces.map { $0.map(\.index) } == lists, "\(name)")
+        for found in dwg.recoveringDimensions().dimensions {
+            #expect(found.elementIndices == found.pieces.map(\.index), "\(name)")
+            #expect(found.elementIndices == found.elementIndices.sorted(), "\(name)")
+        }
         let groups = Set(dwg.elements.map(\.attributes.layerGroup))
         #expect(Set(output.report.appliedScales.keys) == groups, "\(name)")
         for group in groups {
