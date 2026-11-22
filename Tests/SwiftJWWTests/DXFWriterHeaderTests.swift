@@ -30,6 +30,17 @@ struct DXFWriterHeaderTests {
         return helper.drawing(elements, blocks: [7: def], scales: [0: 80])
     }
 
+    /// A drawing with a layer that has a JWW name, so the tables also hold an application record.
+    var named: JWW.Drawing {
+        var groups: [JWW.LayerGroup] = (0..<16).map { JWW.LayerGroup(index: $0, scale: 1) }
+        groups[0].layers = [JWW.Layer(index: 14, name: "寸法")]
+        let attributes = JWW.Attributes(layerGroup: 0, layer: 14)
+        let element = JWW.Element(
+            entity: helper.line(0, 0, 1, 1, layer: 14), attributes: attributes)
+        return JWW.Drawing(
+            version: 700, elements: [element], blocks: [:], counts: .init(), layerGroups: groups)
+    }
+
     /// The names of the sections in the order the text has them.
     func sections(_ text: String) -> [String] {
         let lines: [String] = text.components(separatedBy: "\n")
@@ -44,17 +55,17 @@ struct DXFWriterHeaderTests {
         return names
     }
 
-    /// The highest handle (group 5) of the table, block and entity records, or `nil` for none.
+    /// The handle (group 5) of a record, or `nil` when it has none.
+    func handle(of record: ReferenceDXF.Entity) -> Int? {
+        guard let text = record.text(5) else { return nil }
+        return Int(text.trimmingCharacters(in: .whitespaces), radix: 16)
+    }
+
+    /// The highest handle of the table, block and entity records, or `nil` for none.
     func highestHandle(_ dxf: ReferenceDXF) -> Int? {
         let records: [ReferenceDXF.Entity] = dxf.entities + dxf.blockRecords + dxf.tableRecords
-        var highest: Int?
-        for record in records {
-            guard let text = record.text(5) else { continue }
-            let trimmed = text.trimmingCharacters(in: .whitespaces)
-            guard let value = Int(trimmed, radix: 16) else { continue }
-            highest = max(highest ?? value, value)
-        }
-        return highest
+        let handles: [Int] = records.compactMap { handle(of: $0) }
+        return handles.max()
     }
 
     // MARK: the unit and the version
@@ -105,6 +116,7 @@ struct DXFWriterHeaderTests {
         drawings.append((name: "bare entities", drawing: bare))
         drawings.append((name: "mixed", drawing: mixed))
         drawings.append((name: "loose dimension", drawing: recovered))
+        drawings.append((name: "named layer", drawing: named))
         for (name, dwg) in drawings {
             for option in options {
                 let dxf = try ReferenceDXF(text: DXFWriter.string(dwg, options: option))
@@ -127,9 +139,14 @@ struct DXFWriterHeaderTests {
         let output = DXFWriter.output(dwg, options: .init(recoversDimensions: true))
         #expect(output.report.recoveredDimensions.count == 1)
         let dxf = try ReferenceDXF(text: output.text)
-        let name = try #require(dxf.entities.first?.text(2))
-        #expect(dxf.blocks[name]?.isEmpty == false)
-        let seed = Int(dxf.header["$HANDSEED"]?[5] ?? "", radix: 16)
+        let seed = Int(dxf.header["$HANDSEED"]?[5] ?? "", radix: 16) ?? 0
+        let dimension = try #require(dxf.entities.first)
+        let name = try #require(dimension.text(2))
+        let blockHandles: [Int] = (dxf.blocks[name] ?? []).compactMap { handle(of: $0) }
+        #expect(blockHandles.count == 6)
+        #expect(blockHandles.allSatisfy { $0 < seed })
+        #expect((handle(of: dimension) ?? seed) < seed)
+        // The tables take the last handles, and the seed is the one after them.
         #expect(seed == (highestHandle(dxf) ?? 0) + 1)
     }
 
