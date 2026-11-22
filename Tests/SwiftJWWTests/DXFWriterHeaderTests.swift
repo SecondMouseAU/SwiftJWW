@@ -44,6 +44,19 @@ struct DXFWriterHeaderTests {
         return names
     }
 
+    /// The highest handle (group 5) of the table, block and entity records, or `nil` for none.
+    func highestHandle(_ dxf: ReferenceDXF) -> Int? {
+        let records: [ReferenceDXF.Entity] = dxf.entities + dxf.blockRecords + dxf.tableRecords
+        var highest: Int?
+        for record in records {
+            guard let text = record.text(5) else { continue }
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            guard let value = Int(trimmed, radix: 16) else { continue }
+            highest = max(highest ?? value, value)
+        }
+        return highest
+    }
+
     // MARK: the unit and the version
 
     @Test("the header declares millimetres")
@@ -78,25 +91,46 @@ struct DXFWriterHeaderTests {
         #expect(full.entities.first?.number(11) == 800)
     }
 
-    @Test("every drawing and every option declares the version and the unit")
+    @Test("every drawing and every option declares the version, the unit and the handles")
     func anyDrawingAnyOptions() throws {
         let options: [DXFWriter.Options] = [
             .init(), .init(fullSize: true), .init(recoversDimensions: true),
             .init(fullSize: true, recoversDimensions: true),
         ]
         let bare = JWW.Drawing(version: 700, entities: [helper.line(0, 0, 1, 1)], counts: .init())
-        let drawings: [(name: String, drawing: JWW.Drawing)] = [
-            ("empty", helper.drawing([])), ("bare entities", bare), ("mixed", mixed),
-        ]
+        let sample: [JWW.Element] = DXFWriterRecoveryTests().sample
+        let recovered: JWW.Drawing = DimensionTests().drawing(sample)
+        var drawings: [(name: String, drawing: JWW.Drawing)] = []
+        drawings.append((name: "empty", drawing: helper.drawing([])))
+        drawings.append((name: "bare entities", drawing: bare))
+        drawings.append((name: "mixed", drawing: mixed))
+        drawings.append((name: "loose dimension", drawing: recovered))
         for (name, dwg) in drawings {
             for option in options {
                 let dxf = try ReferenceDXF(text: DXFWriter.string(dwg, options: option))
-                let unit = dxf.header["$INSUNITS"]?[70]
-                let version = dxf.header["$ACADVER"]?[1]
-                #expect(unit == "4", "\(name) drawing with \(option)")
-                #expect(version == "AC1009", "\(name) drawing with \(option)")
+                let label = "\(name) drawing with \(option)"
+                #expect(dxf.header["$INSUNITS"]?[70] == "4", "\(label)")
+                #expect(dxf.header["$ACADVER"]?[1] == "AC1009", "\(label)")
+                #expect(dxf.header["$HANDLING"]?[70] == "1", "\(label)")
+                let seed = Int(dxf.header["$HANDSEED"]?[5] ?? "", radix: 16)
+                let highest = highestHandle(dxf)
+                #expect(seed != nil, "\(label)")
+                #expect((seed ?? 0) > (highest ?? 0), "\(label)")
             }
         }
+    }
+
+    @Test("the handle seed is above the handles of a recovered dimension and of its block")
+    func seedAboveRecoveredDimension() throws {
+        let sample: [JWW.Element] = DXFWriterRecoveryTests().sample
+        let dwg: JWW.Drawing = DimensionTests().drawing(sample)
+        let output = DXFWriter.output(dwg, options: .init(recoversDimensions: true))
+        #expect(output.report.recoveredDimensions.count == 1)
+        let dxf = try ReferenceDXF(text: output.text)
+        let name = try #require(dxf.entities.first?.text(2))
+        #expect(dxf.blocks[name]?.isEmpty == false)
+        let seed = Int(dxf.header["$HANDSEED"]?[5] ?? "", radix: 16)
+        #expect(seed == (highestHandle(dxf) ?? 0) + 1)
     }
 
     @Test("the file written by write(_:to:) declares it too")
@@ -113,12 +147,18 @@ struct DXFWriterHeaderTests {
 
     @Test("the header is the first section, after the comment and before the tables")
     func headerFirst() {
-        let text = DXFWriter.string(mixed)
-        #expect(sections(text) == ["HEADER", "TABLES", "BLOCKS", "ENTITIES"])
+        #expect(sections(DXFWriter.string(mixed)) == ["HEADER", "TABLES", "BLOCKS", "ENTITIES"])
+    }
+
+    @Test("the header is these bytes, with the handle after the linetype and layer 0 as the seed")
+    func headerBytes() {
+        // The linetype has handle 1 and layer 0 handle 2, so 3 is the next free handle.
+        let text = DXFWriter.string(helper.drawing([]))
         #expect(
             text.hasPrefix(
                 "999\nSwiftJWW\n0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n"
-                    + "9\n$INSUNITS\n70\n4\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n"))
+                    + "9\n$INSUNITS\n70\n4\n9\n$HANDLING\n70\n1\n9\n$HANDSEED\n5\n3\n"
+                    + "0\nENDSEC\n0\nSECTION\n2\nTABLES\n"))
     }
 
     @Test("the sections after the header hold the entities, blocks and layers of the drawing")

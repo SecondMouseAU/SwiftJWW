@@ -29,10 +29,13 @@ struct DXFEmitter {
         return scale
     }
 
+    /// The next handle (group 5), in hexadecimal, which no record has yet.
+    var nextHandleText: String { String(nextHandle, radix: 16, uppercase: true) }
+
     /// The next handle (group 5), in hexadecimal.
     mutating func handle() -> String {
         defer { nextHandle += 1 }
-        return String(nextHandle, radix: 16, uppercase: true)
+        return nextHandleText
     }
 
     /// The name of the DXF layer for a JWW layer group and layer, which it records as used.

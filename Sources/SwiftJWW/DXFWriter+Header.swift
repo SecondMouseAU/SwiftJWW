@@ -7,9 +7,11 @@ extension DXFWriter {
     /// The `$INSUNITS` code the `HEADER` declares: 4, millimetres.
     static let insertionUnits = 4
 
-    /// The `HEADER` section: the version and the length unit of the coordinates.
-    static func header() -> String {
+    /// The `HEADER` section: the version, the length unit of the coordinates, and that entities
+    /// have handles, with `handseed` (hexadecimal) as the next one free.
+    static func header(handseed: String) -> String {
         "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\n\(versionName)\n"
-            + "9\n$INSUNITS\n70\n\(insertionUnits)\n0\nENDSEC\n"
+            + "9\n$INSUNITS\n70\n\(insertionUnits)\n9\n$HANDLING\n70\n1\n"
+            + "9\n$HANDSEED\n5\n\(handseed)\n0\nENDSEC\n"
     }
 }

@@ -205,21 +205,26 @@ through as AutoCAD Color Index values.
 
 ### Header and unit
 
-The file opens with a `HEADER` section that declares `$ACADVER` `AC1009` (R12) and `$INSUNITS` `4`
-(millimetres). Jw_cad draws in millimetres, so a reader gets the unit from the file instead of
-assuming it, and `SwiftDXF` reports a version instead of an empty one.
+The file opens with a `HEADER` section that declares `$ACADVER` `AC1009` (R12), `$INSUNITS` `4`
+(millimetres), `$HANDLING` `1` and `$HANDSEED`. Jw_cad draws in millimetres, so a reader gets the
+unit from the file instead of assuming it, and `SwiftDXF` reports a version instead of an empty one.
+
+`$HANDLING` `1` is what makes the group 5 handles valid in R12, which has them only when it is set.
+`$HANDSEED` is the next handle no record has, in hexadecimal, so it is above every handle in the
+file, the tables' and the blocks' included. It is worked out after the rest of the file is built and
+written before it. `libdxfrw` writes the same pair, and `ezdxf` starts its own handles at the seed:
+without one it warned of non-unique entity handles on drawings with blocks.
 
 **What the version does and does not say.** `AC1009` is what Jw_cad's own DXF export declares, and
 it is the version whose structure the file has: R12 has no subclass markers (group 100), and
 neither does the writer, where R13 and later expect them on every record. It does not say the
 content is R12. The writer also emits `ELLIPSE` (R13 and later, and real drawings have them), the
-`$INSUNITS` variable (R2000 and later; an R12 file has none), group 5 handles without `$HANDLING`
-(the R12 variable that enables them) and `\U+XXXX` text escapes. A reader that holds the file to R12
-strictly may skip or reject those. The ones checked do not: `SwiftDXF`, `ezdxf` 1.4.5 (the same
-entities and no audit fixes as with no version, and the units read) and, from its source,
-LibreCAD's `libdxfrw` (it parses `ELLIPSE` in any version, and asks for handles only of a version
-after R12). AutoCAD was not run with the version declared. Declaring a later version would first need the subclass markers
-and owner handles on every record.
+`$INSUNITS` variable (R2000 and later; an R12 file has none) and `\U+XXXX` text escapes. A reader
+that holds the file to R12 strictly may skip or reject those. The ones checked do not: `SwiftDXF`,
+`ezdxf` 1.4.5 (the same entities and no audit fixes as with no version, and the units read) and,
+from its source, LibreCAD's `libdxfrw` (it parses `ELLIPSE` in any version, and asks for handles
+only of a version after R12). AutoCAD was not run with the version declared. Declaring a later
+version would first need the subclass markers and owner handles on every record.
 
 The unit is millimetres whatever the options, and what a coordinate measures differs:
 
