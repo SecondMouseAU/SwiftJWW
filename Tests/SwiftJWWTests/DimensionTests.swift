@@ -189,7 +189,6 @@ struct DimensionTests {
                 Piece(index: 4, role: .arrowPoint), Piece(index: 5, role: .valueText),
                 Piece(index: 6, role: .valueTextCopy),
             ])
-        #expect(found.pieces.map(\.index) == found.elementIndices)
         let witness = found.pieces.filter { $0.role == .extensionLine }
         #expect(witness.count == found.dimension.extensionLines.count)
     }

@@ -86,6 +86,8 @@ struct RealFileDXFWriterTests {
         let dwg = try JWW.read(contentsOf: url)
         let report = DXFWriter.output(dwg, options: .init(recoversDimensions: true)).report
         let tolerance = 1e-3
+        // The sine under which docs/index.md says a line is parallel to the arrow line.
+        let parallel = 1e-3
         for handle in report.recoveredDimensions {
             let pieces = try #require(report.recoveredDimensionPieces[handle], "\(name)")
             let arrows: [JWW.Point] = pieces.filter { $0.role == .arrowPoint }.compactMap {
@@ -100,6 +102,12 @@ struct RealFileDXFWriterTests {
                     (r.x - arrows[0].x) * (arrows[1].y - arrows[0].y)
                         - (r.y - arrows[0].y) * (arrows[1].x - arrows[0].x)) / span
             }
+            // The sine of the angle between the line a-b and the arrow line.
+            func sine(_ a: JWW.Point, _ b: JWW.Point) -> Double {
+                abs(
+                    (b.x - a.x) * (arrows[1].y - arrows[0].y)
+                        - (b.y - a.y) * (arrows[1].x - arrows[0].x)) / (distance(a, b) * span)
+            }
             for piece in pieces {
                 let entity = dwg.elements[piece.index].entity
                 switch (piece.role, entity) {
@@ -107,14 +115,14 @@ struct RealFileDXFWriterTests {
                     break
                 case (.dimensionLine, .line(let a, let b, _, _)):
                     #expect(offLine(a) <= tolerance && offLine(b) <= tolerance, "\(name) \(handle)")
+                    #expect(sine(a, b) < parallel, "\(name) \(handle): a dimension line bends")
                 case (.extensionLine, .line(let a, let b, _, _)):
                     let ends =
                         arrows.contains { distance($0, a) <= tolerance }
                         || arrows.contains { distance($0, b) <= tolerance }
                     #expect(ends, "\(name) \(handle): an extension line ends on an arrow point")
-                    // A line along the arrow line is the dimension line, not an extension line.
-                    let along = offLine(a) <= tolerance && offLine(b) <= tolerance
-                    #expect(!along, "\(name) \(handle): an extension line crosses the arrow line")
+                    #expect(
+                        sine(a, b) >= parallel, "\(name) \(handle): an extension line is parallel")
                 default:
                     Issue.record("\(name) \(handle): \(piece.role) is not a \(entity)")
                 }
