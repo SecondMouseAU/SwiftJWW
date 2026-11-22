@@ -79,34 +79,66 @@ struct RealFileDXFWriterTests {
     }
 
     @Test(
-        "each piece's role fits what the element is: text, points, and lines by where they lie",
+        "each piece's role fits its element: the dimension's own points and text, lines by position",
         .enabled(if: !Fixtures.drawings.isEmpty), arguments: Fixtures.drawings)
     func rolesFitTheElements(_ url: URL) throws {
         let name = url.deletingPathExtension().lastPathComponent
         let dwg = try JWW.read(contentsOf: url)
         let report = DXFWriter.output(dwg, options: .init(recoversDimensions: true)).report
+        let found = dwg.recoveringDimensions().dimensions
+        #expect(found.count == report.recoveredDimensions.count, "\(name)")
         let tolerance = 1e-3
         // The sine under which docs/index.md says a line is parallel to the arrow line.
         let parallel = 1e-3
-        for handle in report.recoveredDimensions {
+        for (handle, recovered) in zip(report.recoveredDimensions, found) {
             let pieces = try #require(report.recoveredDimensionPieces[handle], "\(name)")
-            let arrows: [JWW.Point] = pieces.filter { $0.role == .arrowPoint }.compactMap {
+            let arrows = recovered.dimension.arrowPoints
+            let label = recovered.dimension.label
+            guard arrows.count == 2 else {
+                Issue.record("\(name) \(handle): \(arrows.count) arrow points")
+                continue
+            }
+            func distance(_ a: JWW.Point, _ b: JWW.Point) -> Double { hypot(a.x - b.x, a.y - b.y) }
+
+            // The arrow point pieces are the dimension's two arrow points, at exactly their places.
+            let arrowPlaces: [JWW.Point] = pieces.filter { $0.role == .arrowPoint }.compactMap {
                 if case .point(let at, _, _) = dwg.elements[$0.index].entity { at } else { nil }
             }
-            #expect(arrows.count == 2, "\(name) \(handle)")
-            guard arrows.count == 2 else { continue }
-            let span = hypot(arrows[1].x - arrows[0].x, arrows[1].y - arrows[0].y)
-            func distance(_ a: JWW.Point, _ b: JWW.Point) -> Double { hypot(a.x - b.x, a.y - b.y) }
+            #expect(arrowPlaces.count == 2, "\(name) \(handle)")
+            #expect(arrows.allSatisfy { arrowPlaces.contains($0) }, "\(name) \(handle)")
+
+            // The value text piece is the text with the dimension's label, at the label's place.
+            let values = pieces.filter { $0.role == .valueText }
+            #expect(values.count == 1, "\(name) \(handle)")
+            if let value = values.first,
+                case .text(let at, _, _, _, let string, _, _) = dwg.elements[value.index].entity
+            {
+                #expect(at == label.at && string == label.string, "\(name) \(handle)")
+                // A copy has the same string at the same place (to the recovery's tolerance), and
+                // is stored after the value text.
+                for copy in pieces where copy.role == .valueTextCopy {
+                    guard
+                        case .text(let copyAt, _, _, _, let copyString, _, _) =
+                            dwg.elements[copy.index].entity
+                    else { continue }
+                    #expect(copyString == string, "\(name) \(handle)")
+                    #expect(distance(copyAt, at) <= tolerance, "\(name) \(handle)")
+                    #expect(copy.index > value.index, "\(name) \(handle)")
+                }
+            }
+
             func offLine(_ r: JWW.Point) -> Double {
                 abs(
                     (r.x - arrows[0].x) * (arrows[1].y - arrows[0].y)
-                        - (r.y - arrows[0].y) * (arrows[1].x - arrows[0].x)) / span
+                        - (r.y - arrows[0].y) * (arrows[1].x - arrows[0].x))
+                    / distance(arrows[0], arrows[1])
             }
             // The sine of the angle between the line a-b and the arrow line.
             func sine(_ a: JWW.Point, _ b: JWW.Point) -> Double {
                 abs(
                     (b.x - a.x) * (arrows[1].y - arrows[0].y)
-                        - (b.y - a.y) * (arrows[1].x - arrows[0].x)) / (distance(a, b) * span)
+                        - (b.y - a.y) * (arrows[1].x - arrows[0].x))
+                    / (distance(a, b) * distance(arrows[0], arrows[1]))
             }
             for piece in pieces {
                 let entity = dwg.elements[piece.index].entity
