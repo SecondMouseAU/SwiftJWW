@@ -9,12 +9,7 @@ extension JWW {
         /// The elements are the value text and any copy of it stored at the same place, the two
         /// arrow points, the dimension line pieces and the extension lines.
         public let pieces: [Piece]
-        /// Indices into ``Drawing/elements`` of the elements the dimension was built from, in
-        /// ascending order.
-        ///
-        /// These are the indices of ``pieces``, computed from it so the two cannot differ. This is a
-        /// source-breaking change from 1.5.0, where it was a stored `var`: code that assigns it, or
-        /// that builds a `RecoveredDimension` with it, no longer compiles.
+        /// Indices into ``Drawing/elements`` of the ``pieces``, in ascending order, computed from them.
         public var elementIndices: [Int] { pieces.map(\.index) }
 
         /// What an element is to the dimension rebuilt from it.

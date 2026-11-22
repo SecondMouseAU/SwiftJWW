@@ -228,8 +228,8 @@ struct DimensionTests {
         ])
     }
 
-    @Test("the element indices are those of the pieces, in ascending order, whatever the drawing")
-    func indicesAreThoseOfThePieces() throws {
+    @Test("the element indices are ascending and none repeats, whatever the drawing")
+    func indicesAreAscendingAndUnique() throws {
         let drawings = [
             corner,
             drawing([
@@ -245,7 +245,6 @@ struct DimensionTests {
         for dwg in drawings {
             for found in dwg.recoveringDimensions().dimensions {
                 seen += 1
-                #expect(found.elementIndices == found.pieces.map(\.index))
                 #expect(found.elementIndices == found.elementIndices.sorted())
                 #expect(Set(found.elementIndices).count == found.elementIndices.count)
             }
