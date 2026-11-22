@@ -249,8 +249,8 @@ description, in the `AcAecLayerStandard` extended data AutoCAD keeps layer descr
 name the layer of a JWW element the way the DXF does.
 
 Every entity, `BLOCK`, `ENDBLK` and table record has a handle (group 5), in hexadecimal and unique in
-the file. The handles follow the order of writing, so the same drawing and options give the same
-handles.
+the file. They are counted in the order the file is built (blocks, then entities, then tables), not
+the order it is written in, so the same drawing and options give the same handles.
 
 ### Dimension records
 

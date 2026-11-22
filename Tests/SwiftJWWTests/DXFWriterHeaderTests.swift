@@ -150,6 +150,15 @@ struct DXFWriterHeaderTests {
         #expect(seed == (highestHandle(dxf) ?? 0) + 1)
     }
 
+    @Test("the seed is above the application record, the last handle of a named layer's tables")
+    func seedAboveApplicationRecord() throws {
+        let dxf = try ReferenceDXF(text: DXFWriter.string(named))
+        let application = try #require(dxf.tableRecords.first { $0.type == "APPID" })
+        let seed = Int(dxf.header["$HANDSEED"]?[5] ?? "", radix: 16) ?? 0
+        #expect((handle(of: application) ?? seed) < seed)
+        #expect(handle(of: application) == highestHandle(dxf))
+    }
+
     @Test("the file written by write(_:to:) declares it too")
     func writtenFile() throws {
         let url = FileManager.default.temporaryDirectory
