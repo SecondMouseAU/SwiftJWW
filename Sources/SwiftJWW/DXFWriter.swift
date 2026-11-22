@@ -134,7 +134,7 @@ public enum DXFWriter {
             emitter.emit(element, scale: emitter.scale(of: element), into: &entities)
         }
 
-        // The tables take handles too, so they are built before the header, which names the next one.
+        // The tables take handles too, so they are built before the header, which names the next.
         let tables = emitter.tables()
         var s = "999\nSwiftJWW\n"
         s += header(handseed: emitter.nextHandleText)
