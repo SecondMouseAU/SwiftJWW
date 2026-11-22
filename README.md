@@ -127,6 +127,14 @@ part drawn at 1:10 has the bounds of the same part drawn at 1:1, and the measure
 `DIMENSION` is its stated value with no further scale. A block insert scales its position and scale
 factors, so its members follow the group of the insert, not their own.
 
+**Unit and version in the DXF.** A `HEADER` section declares `$INSUNITS` 4 (millimetres), so a
+reader does not have to assume the unit. It is millimetres with or without `fullSize`: with it the
+coordinates are real millimetres (a layer group with no usable scale stays as drawn), and without
+it they are millimetres of paper at the drawn scale (a length times the scale of its layer group is
+the real one). It also declares `$ACADVER` `AC1009` (R12), the version Jw_cad's own export
+declares. That names how the file is built, not its content: the writer also emits `ELLIPSE`,
+`$INSUNITS` and handles, which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)).
+
 ## Validation
 
 The line, arc, point and text core is validated byte-for-byte against the reference reader. In
