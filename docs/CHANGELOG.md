@@ -7,7 +7,12 @@ date is the day before. Changes that can stop existing code compiling are called
 
 ## Unreleased
 
-Nothing yet.
+Documentation only, with no change to the API or to the DXF written: `docs/index.md` now says which
+readers were run on the three things in the output that Autodesk's R12 reference does not list
+(`ELLIPSE`, `$INSUNITS` and `\U+XXXX` text escapes) and what each did, including that LibreOffice
+Draw does not draw `ELLIPSE` under any of the nine versions tried
+([#46](https://github.com/SecondMouseAU/SwiftJWW/issues/46),
+[#47](https://github.com/SecondMouseAU/SwiftJWW/issues/47)).
 
 ## 2.0.0 (2026-11-23)
 

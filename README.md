@@ -114,10 +114,11 @@ groups 13 and 14, rotation as group 50) with its drawn parts in the anonymous bl
 record from a file older than 4.20, which has no measured points, is written as its drawn parts.
 `Drawing.entities` holds a record as its decomposed parts.
 **Text is decoded to Unicode at read time** (`Entity.text.string`) from the file's CP932 (Shift-JIS)
-bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` escapes so Japanese
-renders in AutoCAD / LibreCAD regardless of code page. (CP932 decoding uses CoreFoundation, which is
-reliable on Apple platforms; on Linux it falls back and Japanese may not decode, but geometry still
-converts.)
+bytes via `JWW.decodeCP932`, and the DXF writer emits non-ASCII as `\U+XXXX` escapes, so the text does
+not depend on a code page. A reader that decodes the escape shows the Japanese text (which readers
+were run, and what each did, is in [Readers run on the DXF](docs/index.md#readers-run-on-the-dxf)).
+(CP932 decoding uses CoreFoundation, which is reliable on Apple platforms; on Linux it falls back and
+Japanese may not decode, but geometry still converts.)
 
 **Layers, handles and recovered dimensions in the DXF.** Each entity has a handle (group 5), and its
 layer is named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export:
@@ -143,7 +144,11 @@ it they are millimetres of paper at the drawn scale (a length times the scale of
 the real one). It also declares `$ACADVER` `AC1009` (R12), the version Jw_cad's own export
 declares, with `$HANDLING` 1 and a `$HANDSEED` above every handle, so the handles are valid in R12.
 That names how the file is built, not its content: the writer also emits `ELLIPSE` and `$INSUNITS`,
-which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)).
+which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)). Six readers that read
+its entities were run on such a file (`SwiftDXF`, `ezdxf`, `libdxfrw`, GDAL, OpenSCAD and LibreOffice
+Draw), and each reads the same entities whatever version the file declares, but LibreOffice Draw does
+not draw `ELLIPSE` under any of the nine versions tried. AutoCAD was not run. [Readers run on the
+DXF](docs/index.md#readers-run-on-the-dxf) gives the versions and what each did.
 
 ## Validation
 
