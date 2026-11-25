@@ -247,7 +247,8 @@ that holds the file to R12 strictly may skip or reject those. The ones checked d
 `ezdxf` 1.4.5 (the same entities and no audit fixes as with no version, and the units read) and,
 from its source, LibreCAD's `libdxfrw` (it parses `ELLIPSE` in any version, and asks for handles
 only of a version after R12). AutoCAD was not run with the version declared. Declaring a later
-version would first need the subclass markers and owner handles on every record.
+version would first need the subclass markers and owner handles on every record, and a handle on
+each `TABLE` header.
 
 The unit is millimetres whatever the options, and what a coordinate measures differs:
 
@@ -274,6 +275,14 @@ name the layer of a JWW element the way the DXF does.
 Every entity, `BLOCK`, `ENDBLK` and table record has a handle (group 5), in hexadecimal and unique in
 the file. They are counted in the order the file is built (blocks, then entities, then tables), not
 the order it is written in, so the same drawing and options give the same handles.
+
+A `TABLE` header has no handle: it is `0 TABLE`, `2 <name>` and `70 <count>`. That is the whole
+header in Autodesk's R12 reference, in `libdxfrw`'s own R12 output and in the R12 files with
+`$HANDLING` 1 that were checked, and no reader needs more: `ezdxf` gives the header of an R12 file a
+handle itself when it audits, with no message. A handle before the `2` group would hide the tables
+from readers that expect the name right after `TABLE` (`SwiftDXF` read no layers or line types, and
+`libdxfrw` failed the read). One after the name or the count did no harm to the readers tried, but
+R12 does not call for it. A later version does, as the header of its tables.
 
 ### Dimension records
 
