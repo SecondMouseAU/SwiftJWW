@@ -284,10 +284,11 @@ output for `ec01`, a TECS drawing with blocks and 25 `ELLIPSE`s. The five-entity
 Each reader in the table that was run was run on the five-entity file under all nine versions.
 `ec01` was read by `SwiftDXF`, `ezdxf` and `libdxfrw` under the same nine, and drawn by LibreOffice
 Draw as written. *Ran* means the program was run on those files, and *read only* means only its
-source was read. The table gives what each reader did under `AC1009`, and each gave the same result
-under the other eight, apart from the version it reports and one difference in `ezdxf`: it upgrades
-`AC1012` and `AC1014` to `AC1015` on load, and from `AC1012` on its audit reports each `TABLE` header
-that has no handle (see [Layers and handles](#layers-and-handles)).
+source was read. The table gives what each reader did under `AC1009`, and each reader that was run
+gave the same result under the other eight, apart from the version it reports and two differences in
+`ezdxf`. It upgrades `AC1012` and `AC1014` to `AC1015` on load, which adds 20 arrow-head blocks of its
+own to `ec01` and leaves the modelspace entities as they are, and from `AC1012` on its audit reports
+each `TABLE` header that has no handle (see [Layers and handles](#layers-and-handles)).
 
 | Reader | `ELLIPSE` | `$INSUNITS` | `\U+XXXX` |
 |---|---|---|---|
@@ -297,7 +298,7 @@ that has no handle (see [Layers and handles](#layers-and-handles)).
 | GDAL OGR 3.13.3, the copy in QGIS 4.2.3 (ran, `ogrinfo`) | read as a line string (91 vertices for the full ellipse, 24 for the quarter arc) | listed as `$INSUNITS=4` in the dataset's `DXF_HEADER_VARIABLES` metadata, and applied to nothing (the layer has no spatial reference, and the coordinates are the file's) | kept as written, in the `Text` field and in the label style |
 | OpenSCAD 2026.10.11 (ran, `import()` to SVG) | read: 3 contours (the `CIRCLE` and the two `ELLIPSE`s; the `LINE` is not one), and 1 without the `ELLIPSE`s | ignored: the SVG is the same without the variable | `TEXT` is not imported ("Unsupported DXF Entity 'TEXT'") |
 | LibreOffice Draw 26.8.3.1 (ran, headless import to SVG and PNG) | **not drawn** (below) | no effect seen in the output | decoded (the SVG text reads `寸法 A°`) |
-| Inkscape 1.4.4, `dxf_input.py` (read only: `inkscape` would not open a DXF here) | `export_ellipse`, with no version test | not read by the script | decoded, with no version test |
+| Inkscape 1.4.4, `dxf_input.py` (read only: `inkscape` would not open a DXF here) | `export_ellipse`, with no version test (the script's docstring says it takes a DXF of AutoCAD Release 13, `AC1012`, or later, but it never reads `$ACADVER`) | not read by the script | decoded, with no version test |
 
 assimp 6.0 (ran, `assimp info`) gave one mesh of one line from the five-entity file, with the three
 present or absent, so it says nothing about them. LibreCAD itself was not run. Its source (read
