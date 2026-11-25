@@ -1,8 +1,9 @@
 # Changelog
 
-Most recent first, one entry per tagged version. The date is the tag's date in the git history, in the
-committer's local time (UTC+10 or UTC+11); for 1.5.0 and 2.0.0 the UTC date is the day before. Changes
-that can stop existing code compiling are called out.
+Most recent first, one entry per tagged version. The date is the tag's date in the git history: the
+tagging date for the annotated tags 1.0.0 to 1.2.2, the commit date for the lightweight tags after
+them. Both are in the committer's local time (UTC+10 or UTC+11); for 1.5.0 and 2.0.0 the UTC date is
+the day before. Changes that can stop existing code compiling are called out.
 
 ## Unreleased
 
@@ -10,9 +11,9 @@ Nothing yet.
 
 ## 2.0.0 (2026-11-23)
 
-**Major release: two source-breaking changes, a `HEADER` in every DXF, and a role for each piece of a
+**Major version: two source-breaking changes, a `HEADER` in every DXF, and a role for each piece of a
 rebuilt dimension.** The reader, `jww2dxf` and `Package.swift` are unchanged. A dependency declared
-`from: "1.0.0"` stays on the 1.x line and does not pick this release up; move it to `from: "2.0.0"`.
+`from: "1.0.0"` stays on the 1.x line and does not pick this version up; move it to `from: "2.0.0"`.
 
 **Breaking: `JWW.RecoveredDimension.elementIndices` is now get-only** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 In 1.5.0 it was a stored `public var`. It is now computed from the new stored `pieces`
@@ -63,8 +64,7 @@ what it holds. The writer still emits `ELLIPSE` (R13 and later), `$INSUNITS` (R2
 `\U+XXXX` text escapes, and a reader that holds the file to R12 strictly may skip or reject them.
 SwiftDXF and ezdxf 1.4.5 read the same entities as before and report the version and unit, and with the
 seed ezdxf no longer warns of non-unique entity handles on drawings with blocks. The `TABLE` header
-records carry no handle, which a strict R12 file with handles on would have; they did not before
-either. AutoCAD was not run.
+records carry no handle, as before; a strict R12 reader may expect one. AutoCAD was not run.
 
 **Each piece of a rebuilt dimension now has a role** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 A consumer no longer needs its own copy of the recovery's parallel test (a sine under 0.001) to tell a
@@ -84,13 +84,13 @@ dimension line from an extension line ([OCCTSwiftIO#82](https://github.com/Secon
   less. The recovery never put such a line in `elementIndices` either. (0.001 is in drawn coordinates.)
 - On the `2120` drawing the report's roles equal what `recoveringDimensions()` finds: 29 value texts,
   1 copy, 58 arrow points, 30 dimension lines and 56 extension lines (a piece two dimensions share
-  counts once for each).
+  counts once for each). That test runs when `SWIFTJWW_FIXTURES` points at the real drawings.
 
 ## 1.5.0 (2026-11-19)
 
-**Rebuilt dimensions name their pieces, and four writer and reader fixes, checked against the DXF
-exports of 271 real drawings with blocks.** Additive API, apart from one change to the writer's report
-noted below.
+**Rebuilt dimensions name their pieces, solid fills inside blocks are counted, three fixes, and block
+expansion is checked against the DXF exports of 271 real drawings with blocks.**
+Additive API, apart from one change to the writer's report noted below.
 
 **Added**
 
@@ -219,14 +219,14 @@ synthetic tests. Existing `Drawing.entities` and `BlockDef.entities` are unchang
 Also in this tag, with no effect on the library's API: CI builds and tests on every push and pull
 request ([#11](https://github.com/SecondMouseAU/SwiftJWW/pull/11)) and runs on `macos-latest`
 ([#12](https://github.com/SecondMouseAU/SwiftJWW/pull/12)); the ecosystem code-style rollout is
-applied ([#9](https://github.com/SecondMouseAU/SwiftJWW/issues/9)); and the OKF policies and the pull
-request template are added.
+applied ([#9](https://github.com/SecondMouseAU/SwiftJWW/issues/9)); and further OKF policies (writing
+style, search before building, code structure, issue tracking) and the pull request template are added.
 
 ## 1.2.2 (2026-07-20)
 
 **Catch-up release for repository changes since 1.2.1.** SPI hygiene (`.spi.yml`,
 [#4](https://github.com/SecondMouseAU/SwiftJWW/issues/4)) and OKF onboarding (policies and the
-ecosystem catalog). No API change.
+ecosystem catalog). No API change. Tagged 2026-07-20; its last commit is dated 2026-07-17.
 
 ## 1.2.1 (2026-06-22)
 
