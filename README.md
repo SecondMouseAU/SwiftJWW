@@ -143,7 +143,11 @@ it they are millimetres of paper at the drawn scale (a length times the scale of
 the real one). It also declares `$ACADVER` `AC1009` (R12), the version Jw_cad's own export
 declares, with `$HANDLING` 1 and a `$HANDSEED` above every handle, so the handles are valid in R12.
 That names how the file is built, not its content: the writer also emits `ELLIPSE` and `$INSUNITS`,
-which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)).
+which R12 does not have (see [Header and unit](docs/index.md#header-and-unit)). Six readers were run on
+such a file (`SwiftDXF`, `ezdxf`, `libdxfrw`, GDAL, OpenSCAD and LibreOffice Draw) and none treats it
+differently because it says R12, but LibreOffice Draw does not draw `ELLIPSE` under any of the nine versions tried.
+AutoCAD was not run. [Readers run on the DXF](docs/index.md#readers-run-on-the-dxf) gives the versions
+and what each did.
 
 ## Validation
 

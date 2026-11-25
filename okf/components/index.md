@@ -4,7 +4,7 @@ title: Components index
 resource: https://github.com/SecondMouseAU/SwiftJWW
 tags: [index]
 description: Public modules / API surfaces exposed by SwiftJWW.
-timestamp: 2026-11-22
+timestamp: 2026-11-25
 ---
 
 # Components
@@ -17,7 +17,10 @@ timestamp: 2026-11-22
   (millimetres: real ones with full-size coordinates, paper ones at the drawn scale without) and
   `$HANDLING` 1 with a `$HANDSEED`, handles, layers named `<group>-<layer>` in hexadecimal with a
   `LAYER` table, dimension records as `DIMENSION` entities, and options to write full-size
-  coordinates and to write recovered dimensions as `DIMENSION`s, with a report of them.
+  coordinates and to write recovered dimensions as `DIMENSION`s, with a report of them. The version
+  names how the file is built, not its content: `ELLIPSE` and `$INSUNITS` are not R12. Six readers
+  were run on such a file, none treats it differently because it says R12, and LibreOffice Draw does
+  not draw `ELLIPSE` under any of the nine versions tried; AutoCAD was not run (`docs/index.md`, "Readers run on the DXF").
 - **`JWW.RecoveredDimension`** (in `SwiftJWW`): a dimension rebuilt from loose pieces, with its
   `pieces` (each element it was built from and its role) as the stored source of truth.
   `elementIndices` is computed from `pieces`; it was a settable stored `var` in 1.5.0, so assigning
