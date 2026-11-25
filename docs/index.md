@@ -29,7 +29,7 @@ What each version changed, with the source-breaking changes called out, is in th
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/SecondMouseAU/SwiftJWW.git", from: "1.0.0"),
+    .package(url: "https://github.com/SecondMouseAU/SwiftJWW.git", from: "2.0.0"),
 ],
 ```
 

@@ -12,7 +12,12 @@ readers were run on the three things in the output that Autodesk's R12 reference
 (`ELLIPSE`, `$INSUNITS` and `\U+XXXX` text escapes) and what each did, including that LibreOffice
 Draw does not draw `ELLIPSE` under any of the nine versions tried
 ([#46](https://github.com/SecondMouseAU/SwiftJWW/issues/46),
-[#47](https://github.com/SecondMouseAU/SwiftJWW/issues/47)).
+[#47](https://github.com/SecondMouseAU/SwiftJWW/issues/47)). The install snippets in the README and
+`docs/index.md` now say `from: "2.0.0"`, where `from: "1.0.0"` stays on 1.x
+([#43](https://github.com/SecondMouseAU/SwiftJWW/issues/43)), and two doc comments on `DXFWriter` no
+longer say that AutoCAD and LibreCAD accept the output or render its text correctly, which no run
+showed ([#49](https://github.com/SecondMouseAU/SwiftJWW/issues/49)); that change is to comments in
+`Sources/`, with no change to behaviour.
 
 ## 2.0.0 (2026-11-23)
 

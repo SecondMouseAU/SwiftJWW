@@ -2,15 +2,15 @@ import Foundation
 
 /// Writes a ``JWW/Drawing`` as an ASCII **DXF**.
 ///
-/// A DXF that AutoCAD / LibreCAD / most CAD tools accept. Maps
-/// JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
+/// Maps JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
 /// elliptical arc→`ELLIPSE`, point→`POINT`, text→`TEXT`, block insert→`INSERT`, and a dimension
 /// record with its measured points→`DIMENSION`. Each entity has a handle (group 5), and its layer is
 /// named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export: layer
 /// 14 of group 0 is `0-E`.
 ///
 /// The `HEADER` declares `$ACADVER` `AC1009` (R12) and `$INSUNITS` 4, millimetres;
-/// ``Options/fullSize`` says which millimetres.
+/// ``Options/fullSize`` says which millimetres. The package's `docs/index.md` ("Readers run on the
+/// DXF") lists the readers the output was run through and what each did.
 public enum DXFWriter {
 
     /// What the writer does beyond copying each entity as it is drawn.
@@ -172,8 +172,9 @@ public enum DXFWriter {
     /// Prepare a (Unicode) string for a DXF group-1 value.
     ///
     /// Strips newlines, and escapes every non-ASCII character as the DXF `\U+XXXX` unicode
-    /// escape. This renders correctly in AutoCAD / LibreCAD regardless of the reader's assumed
-    /// code page (the `HEADER` carries no `$DWGCODEPAGE`).
+    /// escape, so the text does not depend on a code page (the `HEADER` carries no `$DWGCODEPAGE`).
+    /// Readers differ in whether they decode the escape; `docs/index.md` ("Readers run on the DXF")
+    /// says which did.
     static func dxfText(_ s: String) -> String {
         var out = ""
         for u in s.unicodeScalars {

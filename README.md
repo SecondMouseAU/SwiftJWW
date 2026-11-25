@@ -27,7 +27,7 @@ inserts, and converts it to **DXF**.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/SecondMouseAU/SwiftJWW.git", from: "1.0.0"),
+    .package(url: "https://github.com/SecondMouseAU/SwiftJWW.git", from: "2.0.0"),
 ],
 // target:
 .target(name: "YourTarget", dependencies: [.product(name: "SwiftJWW", package: "SwiftJWW")]),
