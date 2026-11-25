@@ -2,16 +2,15 @@ import Foundation
 
 /// Writes a ``JWW/Drawing`` as an ASCII **DXF**.
 ///
-/// AutoCAD was not run on the output; the package's `docs/index.md` ("Readers run on the DXF")
-/// lists the readers that were, and what each did. Maps
-/// JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
+/// Maps JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
 /// elliptical arc→`ELLIPSE`, point→`POINT`, text→`TEXT`, block insert→`INSERT`, and a dimension
 /// record with its measured points→`DIMENSION`. Each entity has a handle (group 5), and its layer is
 /// named `<group>-<layer>` in hexadecimal, as Jw_cad names it in its own DXF and DWG export: layer
 /// 14 of group 0 is `0-E`.
 ///
 /// The `HEADER` declares `$ACADVER` `AC1009` (R12) and `$INSUNITS` 4, millimetres;
-/// ``Options/fullSize`` says which millimetres.
+/// ``Options/fullSize`` says which millimetres. The package's `docs/index.md` ("Readers run on the
+/// DXF") lists the readers the output was run through and what each did.
 public enum DXFWriter {
 
     /// What the writer does beyond copying each entity as it is drawn.
