@@ -2,7 +2,8 @@ import Foundation
 
 /// Writes a ``JWW/Drawing`` as an ASCII **DXF**.
 ///
-/// A DXF that AutoCAD / LibreCAD / most CAD tools accept. Maps
+/// The output was run through SwiftDXF, ezdxf, libdxfrw, GDAL, OpenSCAD and LibreOffice Draw;
+/// AutoCAD was not run. `docs/index.md` ("Readers run on the DXF") says what each did. Maps
 /// JWW entities to DXF: line→`LINE`, full circle→`CIRCLE`, circular arc→`ARC`,
 /// elliptical arc→`ELLIPSE`, point→`POINT`, text→`TEXT`, block insert→`INSERT`, and a dimension
 /// record with its measured points→`DIMENSION`. Each entity has a handle (group 5), and its layer is
@@ -172,8 +173,9 @@ public enum DXFWriter {
     /// Prepare a (Unicode) string for a DXF group-1 value.
     ///
     /// Strips newlines, and escapes every non-ASCII character as the DXF `\U+XXXX` unicode
-    /// escape. This renders correctly in AutoCAD / LibreCAD regardless of the reader's assumed
-    /// code page (the `HEADER` carries no `$DWGCODEPAGE`).
+    /// escape, so the text does not depend on a code page (the `HEADER` carries no `$DWGCODEPAGE`).
+    /// A reader that decodes the escape shows the original text; `ezdxf.read` keeps it as written
+    /// (`docs/index.md`, "Readers run on the DXF").
     static func dxfText(_ s: String) -> String {
         var out = ""
         for u in s.unicodeScalars {
