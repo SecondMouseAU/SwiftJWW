@@ -7,6 +7,8 @@
 
 📖 **Documentation:** <https://secondmouseau.github.io/SwiftJWW/>
 
+**Changelog:** [docs/CHANGELOG.md](docs/CHANGELOG.md), one entry per version, newest first.
+
 A native-Swift reader for **JWW**, the native drawing format of [**Jw_cad**](https://www.jwcad.net/)
 (the free 2D CAD program widely used in Japan), plus a **`jww2dxf`** command-line converter.
 
