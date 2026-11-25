@@ -2,8 +2,8 @@
 
 Most recent first, one entry per tagged version. The date is the tag's date in the git history: the
 tagging date for the annotated tags 1.0.0 to 1.2.2, the commit date for the lightweight tags after
-them. Both are in the committer's local time (UTC+10 or UTC+11); for 1.5.0 and 2.0.0 the UTC date is
-the day before. Changes that can stop existing code compiling are called out.
+them. Both are in the local time they were recorded in (UTC+10 or UTC+11); for 1.5.0 and 2.0.0 the UTC
+date is the day before. Changes that can stop existing code compiling are called out.
 
 ## Unreleased
 
@@ -12,8 +12,9 @@ Nothing yet.
 ## 2.0.0 (2026-11-23)
 
 **Major version: two source-breaking changes, a `HEADER` in every DXF, and a role for each piece of a
-rebuilt dimension.** The reader, `jww2dxf` and `Package.swift` are unchanged. A dependency declared
-`from: "1.0.0"` stays on the 1.x line and does not pick this version up; move it to `from: "2.0.0"`.
+rebuilt dimension.** The reader, the source of `jww2dxf` and `Package.swift` are unchanged; every DXF
+`jww2dxf` writes gains the `HEADER` below. A dependency declared `from: "1.0.0"` stays on the 1.x line
+and does not pick this version up; move it to `from: "2.0.0"`.
 
 **Breaking: `JWW.RecoveredDimension.elementIndices` is now get-only** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 In 1.5.0 it was a stored `public var`. It is now computed from the new stored `pieces`
@@ -64,7 +65,7 @@ what it holds. The writer still emits `ELLIPSE` (R13 and later), `$INSUNITS` (R2
 `\U+XXXX` text escapes, and a reader that holds the file to R12 strictly may skip or reject them.
 SwiftDXF and ezdxf 1.4.5 read the same entities as before and report the version and unit, and with the
 seed ezdxf no longer warns of non-unique entity handles on drawings with blocks. The `TABLE` header
-records carry no handle, as before; a strict R12 reader may expect one. AutoCAD was not run.
+records carry no handle, as before. AutoCAD was not run.
 
 **Each piece of a rebuilt dimension now has a role** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 A consumer no longer needs its own copy of the recovery's parallel test (a sine under 0.001) to tell a
@@ -216,9 +217,9 @@ behavior fix.
 None of the 13 TECS drawings holds a dimension record or a block, so those two paths are covered by
 synthetic tests. Existing `Drawing.entities` and `BlockDef.entities` are unchanged.
 
-Also in this tag, with no effect on the library's API: CI builds and tests on every push and pull
-request ([#11](https://github.com/SecondMouseAU/SwiftJWW/pull/11)) and runs on `macos-latest`
-([#12](https://github.com/SecondMouseAU/SwiftJWW/pull/12)); the ecosystem code-style rollout is
+Also in this tag, with no effect on the library's API: CI builds and tests on pushes and pull
+requests that touch sources, tests or the manifest ([#11](https://github.com/SecondMouseAU/SwiftJWW/pull/11)),
+on `macos-latest` ([#12](https://github.com/SecondMouseAU/SwiftJWW/pull/12)); the ecosystem code-style rollout is
 applied ([#9](https://github.com/SecondMouseAU/SwiftJWW/issues/9)); and further OKF policies (writing
 style, search before building, code structure, issue tracking) and the pull request template are added.
 
