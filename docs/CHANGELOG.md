@@ -1,8 +1,8 @@
 # Changelog
 
-Most recent first, one entry per released tag. The date is the tag's date in the git history, in the
-committer's local time (UTC+10 or UTC+11), so 2.0.0 is the 22nd in UTC. Changes that can stop existing
-code compiling are called out.
+Most recent first, one entry per tagged version. The date is the tag's date in the git history, in the
+committer's local time (UTC+10 or UTC+11); for 1.5.0 and 2.0.0 the UTC date is the day before. Changes
+that can stop existing code compiling are called out.
 
 ## Unreleased
 
@@ -44,6 +44,8 @@ value is now `recoveredDimensionPieces`, and `recoveredDimensionElements` is get
   rather than to `recoveredDimensionElements`.
 - `recoveredDimensionElements` is rebuilt on each access, so a loop over many handles should read it
   once into a local, or use `recoveredDimensionPieces`.
+- `Report` is still `Equatable`. Its equality now compares `recoveredDimensionPieces`, so the roles
+  count as well as the indices.
 
 **Every DXF now opens with a `HEADER` section** ([#34](https://github.com/SecondMouseAU/SwiftJWW/issues/34), PR [#36](https://github.com/SecondMouseAU/SwiftJWW/pull/36); [#38](https://github.com/SecondMouseAU/SwiftJWW/issues/38), PR [#41](https://github.com/SecondMouseAU/SwiftJWW/pull/41)).
 Before this `DXFWriter` wrote none, so a reader had no version and no length unit to go on. It declares:
@@ -60,7 +62,9 @@ Before this `DXFWriter` wrote none, so a reader had no version and no length uni
 what it holds. The writer still emits `ELLIPSE` (R13 and later), `$INSUNITS` (R2000 and later) and
 `\U+XXXX` text escapes, and a reader that holds the file to R12 strictly may skip or reject them.
 SwiftDXF and ezdxf 1.4.5 read the same entities as before and report the version and unit, and with the
-seed ezdxf no longer warns of non-unique entity handles on drawings with blocks. AutoCAD was not run.
+seed ezdxf no longer warns of non-unique entity handles on drawings with blocks. The `TABLE` header
+records carry no handle, which a strict R12 file with handles on would have; they did not before
+either. AutoCAD was not run.
 
 **Each piece of a rebuilt dimension now has a role** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 A consumer no longer needs its own copy of the recovery's parallel test (a sine under 0.001) to tell a
@@ -74,10 +78,10 @@ dimension line from an extension line ([OCCTSwiftIO#82](https://github.com/Secon
 - `DXFWriter.Report.recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]]`, keyed by the
   handle of the `DIMENSION` like `recoveredDimensionElements`. A piece that two chained dimensions
   share has its role in each, and the role can differ between them.
-- A line parallel to the one through the arrow points (its sine to it under 0.001) that does not run
-  along the span between them for more than 0.001, and any line of length 0.001 or less, is neither a
-  dimension line nor an extension line and is not a piece. The recovery never put such a line in
-  `elementIndices` either.
+- A line parallel to the one through the arrow points (its sine to it under 0.001) is a dimension line
+  only if both its ends are within 0.001 of that line and it shares more than 0.001 of length with the
+  span between the arrow points. Otherwise it is not a piece, and neither is any line of length 0.001 or
+  less. The recovery never put such a line in `elementIndices` either. (0.001 is in drawn coordinates.)
 - On the `2120` drawing the report's roles equal what `recoveringDimensions()` finds: 29 value texts,
   1 copy, 58 arrow points, 30 dimension lines and 56 extension lines (a piece two dimensions share
   counts once for each).

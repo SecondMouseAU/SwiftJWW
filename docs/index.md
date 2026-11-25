@@ -20,7 +20,7 @@ inserts into a neutral ``Drawing``, and converts it to **DXF**.
   Also compared with the DXF published beside 13 real drawings
   ([details](#validation-against-real-drawings)).
 
-What each release changed, with the source-breaking changes called out, is in the
+What each version changed, with the source-breaking changes called out, is in the
 [changelog](https://github.com/SecondMouseAU/SwiftJWW/blob/main/docs/CHANGELOG.md).
 
 ---
