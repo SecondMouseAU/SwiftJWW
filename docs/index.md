@@ -226,8 +226,9 @@ above 1 is longer across the tilt. It is written with the perpendicular axis as 
 reciprocal ratio, and its start and end parameters turned back a quarter turn. The DXF draws the
 same curve.
 
-Output is an ASCII DXF accepted by AutoCAD, LibreCAD, and most CAD tools. JWW pen colours pass
-through as AutoCAD Color Index values.
+Output is an ASCII DXF. JWW pen colours pass through as AutoCAD Color Index values.
+[Readers run on the DXF](#readers-run-on-the-dxf) lists the readers it was run through; AutoCAD was
+not one of them.
 
 ### Header and unit
 
@@ -247,10 +248,10 @@ neither does the writer, where R13 and later expect them on every record. It doe
 content is R12. The writer also emits `ELLIPSE` (R13 and later, and real drawings have them), the
 `$INSUNITS` variable (R2000 and later; an R12 file has none) and `\U+XXXX` text escapes. A reader
 that holds the file to R12 strictly may skip or reject those. None of the readers that were run
-does: each reads the same entities under `AC1009` as under any later version it was given
-([Readers run on the DXF](#readers-run-on-the-dxf) gives each result). One of them, LibreOffice
-Draw, does not draw `ELLIPSE` under any of the nine versions tried, so declaring another version would
-not help it. AutoCAD was not run. Declaring a later version would first need the subclass markers and owner
+does that: each reader in the table that was run reads the same entities under `AC1009` as under each
+later version it was given ([Readers run on the DXF](#readers-run-on-the-dxf) gives each result).
+One of them, LibreOffice Draw, does not draw `ELLIPSE` under any of the nine versions tried, so
+declaring another version would not help it. AutoCAD was not run. Declaring a later version would first need the subclass markers and owner
 handles on every record, and on each `TABLE` header a handle, an owner and a subclass marker.
 
 The unit is millimetres whatever the options, and what a coordinate measures differs:
@@ -265,18 +266,27 @@ length into a real one. With it, a layer group with no usable scale is still wri
 
 ### Readers run on the DXF
 
-These readers were run on the three things in the output that R12 does not have: `ELLIPSE`,
-`$INSUNITS` and `\U+XXXX` text escapes (see [Header and unit](#header-and-unit)). The test files were
-a five-entity file in the writer's format (a `LINE`, a `CIRCLE`, two `ELLIPSE`s and a `TEXT` of
-`\U+5BF8\U+6CD5 A\U+00B0`) with `$ACADVER` set to each of `AC1009`, `AC1012`, `AC1014`, `AC1015`,
-`AC1018`, `AC1021`, `AC1024`, `AC1027` and `AC1032`, and the writer's output for `ec01`, a TECS drawing
-with blocks and 25 `ELLIPSE`s. Each reader in the table that was run was run on the five-entity file under all
-nine versions. `ec01` was read by `SwiftDXF`, `ezdxf` and `libdxfrw` under the same nine, and drawn by
-LibreOffice Draw as written. *Ran* means the program was run on those files, and *read only* means only
-its source was read. The table gives what each reader did under `AC1009`, and each gave the same
-result under the other eight, apart from the version it reports and one difference in `ezdxf`: it
-upgrades `AC1012` and `AC1014` to `AC1015` on load, and from `AC1012` on its audit reports each `TABLE`
-header that has no handle (see [Layers and handles](#layers-and-handles)).
+These readers were run on the three things in the output that Autodesk's R12 reference does not
+list: `ELLIPSE`, `$INSUNITS` and `\U+XXXX` text escapes (see [Header and unit](#header-and-unit)). The
+test files were a five-entity file in the writer's format, with `$ACADVER` set to each of `AC1009`,
+`AC1012`, `AC1014`, `AC1015`, `AC1018`, `AC1021`, `AC1024`, `AC1027` and `AC1032`, and the writer's
+output for `ec01`, a TECS drawing with blocks and 25 `ELLIPSE`s. The five-entity file has:
+
+- a `HEADER` of `$ACADVER`, `$INSUNITS` 4, `$HANDLING` 1 and `$HANDSEED`, a `LTYPE` table with
+  `CONTINUOUS` and a `LAYER` table with `0` and `0-0`, and every entity on `0-0`;
+- a `LINE` from (0, 0) to (100, 50) and a `CIRCLE` of radius 10 at (50, 25);
+- an `ELLIPSE` at (200, 25) with major axis (30, 0), ratio 0.5 and parameters 0 to 6.283185 (a full
+  ellipse), and an `ELLIPSE` at (300, 25) with the same axis and ratio and parameters 0 to 1.570796
+  (a quarter);
+- a `TEXT` of `\U+5BF8\U+6CD5 A\U+00B0` at (10, 60).
+
+Each reader in the table that was run was run on the five-entity file under all nine versions.
+`ec01` was read by `SwiftDXF`, `ezdxf` and `libdxfrw` under the same nine, and drawn by LibreOffice
+Draw as written. *Ran* means the program was run on those files, and *read only* means only its
+source was read. The table gives what each reader did under `AC1009`, and each gave the same result
+under the other eight, apart from the version it reports and one difference in `ezdxf`: it upgrades
+`AC1012` and `AC1014` to `AC1015` on load, and from `AC1012` on its audit reports each `TABLE` header
+that has no handle (see [Layers and handles](#layers-and-handles)).
 
 | Reader | `ELLIPSE` | `$INSUNITS` | `\U+XXXX` |
 |---|---|---|---|
@@ -284,7 +294,7 @@ header that has no handle (see [Layers and handles](#layers-and-handles)).
 | `ezdxf` 1.4.5 (ran) | read exactly; the audit finds nothing | `doc.units` is 4 (0 when absent) | `ezdxf.read` keeps it as written, in `dxf.text` and in `plain_text()`; `ezdxf.recover.readfile` and `ezdxf.decode_dxf_unicode` decode it |
 | `libdxfrw`: LibreCAD's bundled copy (`b91fbdc`) and the standalone one (`d68fb1e`) (ran: built from source and run through a small program that prints each `ELLIPSE` and counts the other entities) | both read exactly | held as a header variable, 4 | decoded |
 | GDAL OGR 3.13.3, the copy in QGIS 4.2.3 (ran, `ogrinfo`) | read as a line string (91 vertices for the full ellipse, 24 for the quarter arc) | listed as `$INSUNITS=4` in the dataset's `DXF_HEADER_VARIABLES` metadata, and applied to nothing (the layer has no spatial reference, and the coordinates are the file's) | kept as written, in the `Text` field and in the label style |
-| OpenSCAD 2026.10.11 (ran, `import()` to SVG) | read: 3 contours with the `ELLIPSE`s, 1 without | ignored: the SVG is the same without the variable | `TEXT` is not imported ("Unsupported DXF Entity 'TEXT'") |
+| OpenSCAD 2026.10.11 (ran, `import()` to SVG) | read: 3 contours (the `CIRCLE` and the two `ELLIPSE`s; the `LINE` is not one), and 1 without the `ELLIPSE`s | ignored: the SVG is the same without the variable | `TEXT` is not imported ("Unsupported DXF Entity 'TEXT'") |
 | LibreOffice Draw 26.8.3.1 (ran, headless import to SVG and PNG) | **not drawn** (below) | no effect seen in the output | decoded (the SVG text reads `寸法 A°`) |
 | Inkscape 1.4.4, `dxf_input.py` (read only: `inkscape` would not open a DXF here) | `export_ellipse`, with no version test | not read by the script | decoded, with no version test |
 
@@ -308,8 +318,9 @@ writer has them (this writer also escapes the degree sign). `ezdxf` 1.4.5 writes
 both, and UTF-8 at R2010. The standalone `libdxfrw` wrote the UTF-8 bytes unchanged at R12 and at R2000,
 so not every writer uses the escape. `libdxfrw` writes `$INSUNITS` only for a version after `AC1014`
 (its source, and its output at `AC1009` and `AC1015`), and `ezdxf` at R12 leaves it out and logs that
-drawing units are not exported for R12. At R12 `libdxfrw` writes an ellipse as a `POLYLINE` of 128
-`VERTEX` records and a `SEQEND`, and at `AC1015` as an `ELLIPSE`.
+drawing units are not exported for R12. At R12 `libdxfrw` writes an ellipse as a `POLYLINE` of
+`VERTEX` records and a `SEQEND` (128 vertices for a full ellipse, the default part count), and at
+`AC1015` as an `ELLIPSE`.
 
 **Not run.** AutoCAD, ODA, BricsCAD, eDrawings and Shapr3D were not run on the output, so what any of
 them does with a file that declares R12 and holds the three is not known. Inkscape's DXF import was
