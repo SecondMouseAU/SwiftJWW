@@ -1,7 +1,8 @@
 # Changelog
 
-Most recent first, one entry per released tag. The date is the tag's date in the git history.
-Changes that can stop existing code compiling are called out.
+Most recent first, one entry per released tag. The date is the tag's date in the git history, in the
+committer's local time (UTC+10 or UTC+11), so 2.0.0 is the 22nd in UTC. Changes that can stop existing
+code compiling are called out.
 
 ## Unreleased
 
@@ -49,8 +50,8 @@ Before this `DXFWriter` wrote none, so a reader had no version and no length uni
 
 - `$ACADVER` `AC1009` (R12), the version Jw_cad's own DXF export declares.
 - `$INSUNITS` `4` (millimetres), with or without `Options.fullSize`. With it the coordinates are real
-  millimetres. Without it they are millimetres of paper at the drawn scale, and a length times the scale
-  of its layer group is the real one.
+  millimetres (a layer group with no usable scale stays as drawn). Without it they are millimetres of
+  paper at the drawn scale, and a length times the scale of its layer group is the real one.
 - `$HANDLING` `1`, the R12 variable that makes the group 5 handles valid.
 - `$HANDSEED`, the next handle no record has, in hexadecimal. It comes from the writer's own handle
   counter, so it is above every handle in the file, the tables' and the blocks' included.
@@ -63,19 +64,20 @@ seed ezdxf no longer warns of non-unique entity handles on drawings with blocks.
 
 **Each piece of a rebuilt dimension now has a role** ([#35](https://github.com/SecondMouseAU/SwiftJWW/issues/35), PR [#37](https://github.com/SecondMouseAU/SwiftJWW/pull/37)).
 A consumer no longer needs its own copy of the recovery's parallel test (a sine under 0.001) to tell a
-dimension line from an extension line (OCCTSwiftIO#82).
+dimension line from an extension line ([OCCTSwiftIO#82](https://github.com/SecondMouseAU/OCCTSwiftIO/pull/82)).
 
 - `JWW.RecoveredDimension.pieces: [Piece]`: what each element the dimension was built from is to it, in
   ascending order of index. A `Piece` is an `index` into `Drawing.elements` and a `Role`.
 - `JWW.RecoveredDimension.Role`: `valueText`, `valueTextCopy`, `arrowPoint`, `dimensionLine`,
-  `extensionLine`. It is `Sendable`, `Hashable` and `CaseIterable` with `String` raw values, and it is
-  not `@frozen`, so a later role would break an exhaustive `switch`. `Piece` is `Sendable` and `Hashable`.
+  `extensionLine`. It is `Sendable`, `Hashable` and `CaseIterable` with `String` raw values. Adding a role
+  later would break an exhaustive `switch` over it. `Piece` is `Sendable` and `Hashable`.
 - `DXFWriter.Report.recoveredDimensionPieces: [String: [JWW.RecoveredDimension.Piece]]`, keyed by the
   handle of the `DIMENSION` like `recoveredDimensionElements`. A piece that two chained dimensions
   share has its role in each, and the role can differ between them.
-- A near-parallel line that does not lie along the line through the arrow points, or meets it only at a
-  point, is neither a dimension line nor an extension line and is not a piece. The recovery never put
-  such a line in `elementIndices` either.
+- A line parallel to the one through the arrow points (its sine to it under 0.001) that does not run
+  along the span between them for more than 0.001, and any line of length 0.001 or less, is neither a
+  dimension line nor an extension line and is not a piece. The recovery never put such a line in
+  `elementIndices` either.
 - On the `2120` drawing the report's roles equal what `recoveringDimensions()` finds: 29 value texts,
   1 copy, 58 arrow points, 30 dimension lines and 56 extension lines (a piece two dimensions share
   counts once for each).
